@@ -1,0 +1,5 @@
+.env.local
+.env
+wp-content/uploads/
+.claude/settings.local.json
+.mcp.json

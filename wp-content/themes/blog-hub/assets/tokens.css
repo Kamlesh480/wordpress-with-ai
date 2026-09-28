@@ -1,0 +1,82 @@
+/* ==========================================================================
+   Design system tokens
+   Source: design team's "Blog Article.dc.html" export — canonical token
+   vocabulary. Values keep the palette established in blog-hub.css
+   (Figma "Blog Hub", node 2002:520): navy #1f1c44, gold #c9b379, cream #f1f0e9.
+   ========================================================================== */
+
+:root {
+	/* Color: base palette */
+	--navy-900: #1f1c44;
+	--navy-800: #2c2856;
+	--gold-400: #d9c896;
+	--gold-500: #c9b379;
+	--gold-600: #b39a5c;
+	--cream-50: #faf9f5;
+	--cream-100: #f1f0e9;
+	--white: #ffffff;
+
+	/* Color: semantic */
+	--surface-page: var(--white);
+	--surface-alt: var(--cream-100);
+	--surface-tint: var(--cream-50);
+	--surface-card: var(--white);
+	--text-heading: #211f1d;
+	--text-body: #211f1d;
+	--text-muted: #5c5a57;
+	--text-accent: var(--gold-500);
+	--text-on-dark: #ccd6df;
+	--link: var(--gold-500);
+	--icon-accent: var(--gold-500);
+	--border-default: #dddbd0;
+	--border-on-dark: rgba(255, 255, 255, 0.18);
+	--rule-light: #dddbd0;
+	--divider-accent: var(--gold-500);
+	--nav-bg: var(--navy-900);
+	--nav-fg: var(--white);
+	--nav-fg-active: var(--gold-500);
+	--focus-ring: var(--gold-500);
+
+	/* Typography */
+	--font-body: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	--fs-small: 14px;
+	--fs-body: 16px;
+	--fs-eyebrow: 13px;
+	--fs-h4: 18px;
+	--fs-h3: 22px;
+	--fs-h2: 32px;
+	--fs-h1: 26px;
+	--fs-display: 44px;
+	--lh-body: 1.9;
+	--lh-h1: 1.3;
+	--fw-light: 200;
+	--fw-regular: 400;
+	--fw-medium: 500;
+	--fw-bold: 700;
+	--ls-caps: 2.64px;
+	--ls-eyebrow: 1.82px;
+
+	/* Layout */
+	--container-max: 1170px;
+	--section-pad-x: 24px;
+	--divider-height: 3px;
+	--border-width-1: 1px;
+	--border-width-hairline: 1px;
+	--radius-button: 3px;
+	--radius-circle: 50%;
+	--radius-pill: 999px;
+	--shadow-soft: 0 8px 24px rgba(31, 28, 68, 0.18);
+	--transition-color: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+
+	/* Spacing scale (4px base) */
+	--space-1: 4px;
+	--space-2: 8px;
+	--space-3: 12px;
+	--space-4: 16px;
+	--space-5: 20px;
+	--space-6: 24px;
+	--space-7: 32px;
+	--space-8: 40px;
+	--space-9: 56px;
+	--space-10: 80px;
+}
