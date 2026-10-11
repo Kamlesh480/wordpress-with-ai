@@ -1,0 +1,267 @@
+<?php
+
+ 
+
+namespace WPStaging\Framework\Utils;
+
+use DirectoryIterator;
+use UnexpectedValueException;
+use WPStaging\Framework\Filesystem\PathIdentifier;
+
+ 
+
+
+
+class WpDefaultDirectories
+{
+
+
+
+    private $strUtils;
+
+
+
+
+
+    private $wpRoot;
+
+
+
+
+
+    private $refreshUploadPathCache = false;
+
+    public function __construct()
+    {
+ 
+        $this->strUtils = new Strings();
+        $this->wpRoot = $this->strUtils->sanitizeDirectorySeparator(ABSPATH);
+    }
+
+
+
+
+    public function shouldRefreshUploadPathCache($shouldRefresh = true)
+    {
+        $this->refreshUploadPathCache = $shouldRefresh;
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public function getRelativeUploadPath($mode = SlashMode::NO_SLASH)
+    {
+        $relPath = str_replace($this->wpRoot, '', $this->getUploadsPath());
+
+        return $this->slashit($relPath, $mode);
+    }
+
+
+
+
+
+    public function getUploadsPath()
+    {
+ 
+ 
+ 
+ 
+ 
+        $uploads = wp_upload_dir(null, true, $this->refreshUploadPathCache);
+
+ 
+        $uploadsAbsPath = trailingslashit($uploads['basedir']);
+
+        return $this->strUtils->sanitizeDirectorySeparator($uploadsAbsPath);
+    }
+
+
+
+
+
+
+
+
+
+
+    public function getRelativeWpContentPath($mode = SlashMode::NO_SLASH)
+    {
+        $wpContentDir = $this->strUtils->sanitizeDirectorySeparator(WP_CONTENT_DIR);
+        $relPath = str_replace($this->wpRoot, '', $wpContentDir);
+
+        return $this->slashit($relPath, $mode);
+    }
+
+
+
+
+
+
+
+
+
+
+    public function getRelativePluginPath($mode = SlashMode::NO_SLASH)
+    {
+        $wpPluginDir = $this->strUtils->sanitizeDirectorySeparator(WP_PLUGIN_DIR);
+        $relPath = str_replace($this->wpRoot, '', $wpPluginDir);
+
+        return $this->slashit($relPath, $mode);
+    }
+
+
+
+
+
+
+
+
+
+
+    public function getRelativeMuPluginPath($mode = SlashMode::NO_SLASH)
+    {
+        $wpPluginDir = $this->strUtils->sanitizeDirectorySeparator(WPMU_PLUGIN_DIR);
+        $relPath = str_replace($this->wpRoot, '', $wpPluginDir);
+
+        return $this->slashit($relPath, $mode);
+    }
+
+
+
+
+
+
+
+
+
+
+    public function getRelativeThemePath($mode = SlashMode::NO_SLASH)
+    {
+        $relPath = $this->getRelativeWpContentPath() . '/themes';
+
+        return $this->slashit($relPath, $mode);
+    }
+
+
+
+
+
+
+
+    public function getWpCoreDirectories()
+    {
+        $coreDirectories = [];
+
+        $directories = new DirectoryIterator(ABSPATH);
+        foreach ($directories as $directory) {
+            if ($directory->isDot() || $directory->isFile() || $directory->isLink()) {
+                continue;
+            }
+
+            $name = $directory->getBasename();
+            $path = $this->strUtils->sanitizeDirectorySeparator($directory->getPathname());
+
+ 
+            $shouldSkip = ($name !== 'wp-admin' &&
+                $name !== 'wp-includes' &&
+                $name !== 'wp-content' &&
+                $name !== 'sites') &&
+                strpos(strrev($path), strrev($this->wpRoot . "wp-admin")) === false &&
+                strpos(strrev($path), strrev($this->wpRoot . "wp-includes")) === false &&
+                strpos(strrev($path), strrev($this->wpRoot . "wp-content")) === false;
+
+            if ($shouldSkip) {
+                continue;
+            }
+
+            $path = untrailingslashit($this->strUtils->sanitizeDirectorySeparator($path));
+            $coreDirectories[] = $path;
+        }
+
+        return $coreDirectories;
+    }
+
+
+
+
+
+
+
+
+    public function getDefaultDirectoryByIdentifier($identifier)
+    {
+        if ($identifier === PathIdentifier::IDENTIFIER_ABSPATH) {
+            return '/';
+        }
+
+        if ($identifier === PathIdentifier::IDENTIFIER_WP_CONTENT) {
+            return '/wp-content/';
+        }
+
+        if ($identifier === PathIdentifier::IDENTIFIER_MUPLUGINS) {
+            return '/wp-content/mu-plugins/';
+        }
+
+        if ($identifier === PathIdentifier::IDENTIFIER_PLUGINS) {
+            return '/wp-content/plugins/';
+        }
+
+        if ($identifier === PathIdentifier::IDENTIFIER_THEMES) {
+            return '/wp-content/themes/';
+        }
+
+        if ($identifier === PathIdentifier::IDENTIFIER_UPLOADS) {
+            return '/wp-content/uploads/';
+        }
+
+        if ($identifier === PathIdentifier::IDENTIFIER_LANG) {
+            return '/wp-content/languages/';
+        }
+
+        throw new UnexpectedValueException('Unknown identifier: ' . $identifier);
+    }
+
+
+
+
+
+
+
+
+
+
+
+    private function slashit($path, $mode = SlashMode::NO_SLASH)
+    {
+        $path = trim(trim($path, '\\'), '/');
+        if ($mode === SlashMode::BOTH_SLASHES) {
+            return '/' . $path . '/';
+        }
+
+        if ($mode === SlashMode::TRAILING_SLASH) {
+            return $path . '/';
+        }
+
+        if ($mode === SlashMode::LEADING_SLASH) {
+            return '/' . $path;
+        }
+
+        return $path;
+    }
+}

@@ -1,0 +1,90 @@
+<?php
+
+/**
+ * Plugin Name: WP STAGING WordPress Backup Plugin - Backup Duplicator & Migration
+ * Plugin URI: https://wp-staging.com
+ * Description: Backup and staging environments, migrating WordPress sites. Update plugins without risk. Full backup and testing suite - 100% unit and end-to-end tested.
+ * Version: 4.17.0
+ * Requires at least: 3.6+
+ * Requires PHP: 7.0
+ * Author: WP-STAGING, WPStagingBackup
+ * Author URI: https://wp-staging.com/backup-wordpress
+ * License: GPLv2 or later
+ * License URI: http://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain: wp-staging
+ * Domain Path: /languages/
+ */
+
+if (!defined("WPINC")) {
+    die;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+if (version_compare(phpversion(), '7.0.0', '>=')) {
+ 
+    global $pluginFilePath;
+    $pluginFilePath = __FILE__;
+
+    // phpcs:disable -- Code below runs only on PHP 7.0+ (guaranteed by the version_compare check above).
+    register_shutdown_function(function () {
+        $error = error_get_last();
+        if (!is_array($error)) {
+            return;
+        }
+
+        $fatalTypes = [E_ERROR, E_PARSE, E_USER_ERROR, E_COMPILE_ERROR, E_RECOVERABLE_ERROR];
+        if (!in_array($error['type'], $fatalTypes, true)) {
+            return;
+        }
+
+        if (strpos($error['file'], dirname(__FILE__)) !== 0) {
+            return;
+        }
+
+        error_log(sprintf(
+            '[WP STAGING] Fatal error: %s in %s on line %d',
+            $error['message'],
+            $error['file'],
+            $error['line']
+        ));
+    });
+
+    try {
+        include dirname(__FILE__) . '/opcacheBootstrap.php';
+        include_once dirname(__FILE__) . '/freeBootstrap.php';
+    } catch (\Throwable $e) {
+        error_log('[WP STAGING] Bootstrap failed: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    }
+    // phpcs:enable
+} else {
+    if (!function_exists('wpstg_unsupported_php_version')) {
+        function wpstg_unsupported_php_version()
+        {
+            echo '<div class="notice-warning notice is-dismissible">';
+            echo '<p style="font-weight: bold;">' . esc_html__('PHP Version not supported', 'wp-staging') . '</p>';
+            echo '<p>' . sprintf(esc_html__('WP STAGING requires PHP %s or higher. Your site is running an outdated version of PHP (%s), which requires an update. If you can not upgrade WordPress, install WP STAGING 2.16.0 which supports PHP 5.6.', 'wp-staging'), '7.0', esc_html(phpversion())) . '</p>';
+            echo '</div>';
+        }
+    }
+
+    add_action('wpstg.admin_notices', 'wpstg_unsupported_php_version');
+}

@@ -1,0 +1,71 @@
+<?php
+
+ 
+ 
+ 
+
+namespace WPStaging\Backup\Task\Tasks\JobBackup;
+
+use WPStaging\Framework\Queue\SeekableQueueInterface;
+use WPStaging\Backup\BackupScheduler;
+use WPStaging\Framework\Job\Dto\StepsDto;
+use WPStaging\Backup\Task\BackupTask;
+use WPStaging\Core\Cron\Cron;
+use WPStaging\Vendor\Psr\Log\LoggerInterface;
+use WPStaging\Framework\Utils\Cache\Cache;
+
+class ScheduleBackupTask extends BackupTask
+{
+ 
+    const BASIC_SCHEDULE_TIME = ['0', '0'];
+
+    private $backupScheduler;
+
+    public function __construct(BackupScheduler $backupScheduler, LoggerInterface $logger, Cache $cache, StepsDto $stepsDto, SeekableQueueInterface $taskQueue)
+    {
+        parent::__construct($logger, $cache, $stepsDto, $taskQueue);
+        $this->backupScheduler = $backupScheduler;
+    }
+
+    public static function getTaskName()
+    {
+        return 'backup_scheduler';
+    }
+
+    public static function getTaskTitle()
+    {
+        return 'Creating Backup Plan';
+    }
+
+
+
+
+
+
+
+    public function execute()
+    {
+        $scheduleId = wp_generate_password(12, false);
+
+        $this->setDefaultBasicScheduleOptions();
+
+        if (!$this->backupScheduler->scheduleBackup($this->jobDataDto, $scheduleId)) {
+            $this->logger->warning('Could not create the backup plan, so this backup belongs to no plan.');
+
+            return $this->generateResponse(true);
+        }
+
+        $this->jobDataDto->setScheduleId($scheduleId);
+
+        $this->logger->info('Created scheduled backup id: '  . $scheduleId);
+
+        return $this->generateResponse(true);
+    }
+
+    protected function setDefaultBasicScheduleOptions()
+    {
+        $this->jobDataDto->setScheduleTime(self::BASIC_SCHEDULE_TIME);
+        $this->jobDataDto->setScheduleRotation(1);
+        $this->jobDataDto->setScheduleRecurrence(Cron::BASIC_DAILY);
+    }
+}

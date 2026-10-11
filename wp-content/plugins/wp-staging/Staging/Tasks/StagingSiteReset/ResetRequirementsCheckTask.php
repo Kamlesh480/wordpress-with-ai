@@ -1,0 +1,82 @@
+<?php
+
+namespace WPStaging\Staging\Tasks\StagingSiteReset;
+
+use RuntimeException;
+use WPStaging\Core\WPStaging;
+use WPStaging\Framework\Analytics\Actions\AnalyticsStagingReset;
+use WPStaging\Staging\Tasks\StagingSiteUpdate\UpdateRequirementsCheckTask;
+
+class ResetRequirementsCheckTask extends UpdateRequirementsCheckTask
+{
+
+
+
+    public static function getTaskName()
+    {
+        return 'staging_site_reset_requirements_check';
+    }
+
+
+
+
+    public static function getTaskTitle()
+    {
+        return 'Requirements Check';
+    }
+
+
+
+
+    protected function logStartHeader()
+    {
+        $this->logger->info('#################### Start Staging Site Reset Job ####################');
+    }
+
+
+
+
+    protected function logRequirementsCheckPassed()
+    {
+        $this->logger->info('Staging Site reset requirements passed...');
+    }
+
+
+
+
+    protected function enqueueStartEvent()
+    {
+        WPStaging::make(AnalyticsStagingReset::class)->enqueueStartEvent($this->jobDataDto->getId(), $this->jobDataDto);
+    }
+
+
+
+
+    protected function enqueueRequirementFailEvent()
+    {
+        WPStaging::make(AnalyticsStagingReset::class)->enqueueRequirementFailEvent($this->jobDataDto->getId(), $this->jobDataDto);
+    }
+
+
+
+
+
+    protected function cannotUpdateIfStagingSiteNoExists()
+    {
+        $stagingSitePath = $this->jobDataDto->getStagingSitePath();
+        if (!is_dir($stagingSitePath)) {
+            throw new RuntimeException(esc_html__('Cannot reset staging site. Staging site directory does not exist!', 'wp-staging'));
+        }
+    }
+
+
+
+
+
+    protected function cannotUpdateIfUsingExternalDatabase()
+    {
+        if ($this->jobDataDto->getIsExternalDatabase()) {
+            throw new RuntimeException(esc_html__('Staging site reset with external database is not supported in the basic version.', 'wp-staging'));
+        }
+    }
+}

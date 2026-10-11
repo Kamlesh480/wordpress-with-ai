@@ -1,0 +1,218 @@
+<?php
+
+namespace WPStaging\Backup\Service;
+
+use RuntimeException;
+use SplFileInfo;
+use Throwable;
+use WPStaging\Core\WPStaging;
+use WPStaging\Framework\Adapter\Directory;
+use WPStaging\Framework\Filesystem\DirectoryListing;
+use WPStaging\Framework\Filesystem\FileObject;
+use WPStaging\Framework\Filesystem\Filesystem;
+use WPStaging\Backup\BackupDeleter;
+use WPStaging\Backup\BackupValidator;
+use WPStaging\Backup\Entity\BackupMetadata;
+use WPStaging\Backup\Exceptions\BackupRuntimeException;
+use WPStaging\Framework\Network\RemoteDownloader;
+
+use function WPStaging\functions\debug_log;
+
+
+
+
+
+
+
+
+class BackupsFinder extends AbstractBackupsFinder
+{
+ 
+    const FILTER_BACKUP_DIRECTORY = 'wpstg.backup.directory';
+
+ 
+    private $directory;
+
+ 
+    private $filesystem;
+
+ 
+    private $directoryListing;
+
+ 
+    private $backupsDirectoryResolver;
+
+    public function __construct(Directory $directory, Filesystem $filesystem, DirectoryListing $directoryListing, BackupsDirectoryResolver $backupsDirectoryResolver)
+    {
+        $this->directory                = $directory;
+        $this->filesystem               = $filesystem;
+        $this->directoryListing         = $directoryListing;
+        $this->backupsDirectoryResolver = $backupsDirectoryResolver;
+    }
+
+
+
+
+
+
+    public function getBackupsDirectory(bool $refresh = false): string
+    {
+        if ($refresh || $this->backupsDirectory === null) {
+            $pluginUploadsDirectory = $this->directory->getPluginUploadsDirectory($refresh = true);
+            $directory              = $this->backupsDirectoryResolver->resolveFromPluginUploadsDirectory($pluginUploadsDirectory);
+
+            if (!$this->filesystem->mkdir($directory, true)) {
+                throw BackupRuntimeException::cannotCreateBackupsDirectory($directory);
+            }
+
+            if (!is_readable($directory)) {
+                throw BackupRuntimeException::backupsDirectoryNotReadable($directory);
+            }
+
+            if (!is_writeable($directory)) {
+                throw BackupRuntimeException::backupsDirectoryNotWriteable($directory);
+            }
+
+            $this->directoryListing->maybeUpdateOldHtaccessWebConfig($directory);
+
+            $this->backupsDirectory = $directory;
+        }
+
+        return $this->backupsDirectory;
+    }
+
+
+
+
+
+
+
+
+
+    public function deleteTempBackupByJobId(string $jobId)
+    {
+        $backupsDir = $this->getBackupsDirectory();
+
+ 
+        $tempBackupPath = $backupsDir . $jobId . '.' . Archiver::TMP_BACKUP_EXTENSION;
+        $this->deleteBackupUnlessItsDownloadLinkSurvives($tempBackupPath);
+
+ 
+        $uploadingPath = $tempBackupPath . '.' . RemoteDownloader::UPLOADING_EXTENSION;
+        if (file_exists($uploadingPath)) {
+            $this->filesystem->delete($uploadingPath);
+        }
+
+ 
+ 
+        $renamedBackupPath = $backupsDir . $jobId . '.' . Archiver::BACKUP_EXTENSION;
+        $this->deleteBackupUnlessItsDownloadLinkSurvives($renamedBackupPath);
+
+ 
+ 
+ 
+ 
+        $partFiles = glob($backupsDir . '*' . $jobId . '.*.' . Archiver::BACKUP_EXTENSION . '*');
+        if (is_array($partFiles)) {
+            foreach ($partFiles as $partFile) {
+                $this->deleteBackupUnlessItsDownloadLinkSurvives($partFile);
+            }
+        }
+    }
+
+
+
+
+
+
+    public function findBackupByScheduleId(string $scheduleId): array
+    {
+        $backups = array_filter($this->findBackups(), function ($splFileInfo) use ($scheduleId) {
+            $backupFile = $splFileInfo->getPathname();
+            try {
+                $metadata = (new BackupMetadata())->hydrateByFilePath($backupFile);
+
+                return $metadata->getScheduleId() == $scheduleId;
+            } catch (Throwable $ex) {
+                debug_log("WP STAGING: Could not find backup by schedule ID {$scheduleId} - File: {$backupFile} - " . $ex->getMessage());
+
+                return false;
+            }
+        });
+
+        if (empty($backups)) {
+            return [];
+        }
+
+        return $backups;
+    }
+
+
+
+
+
+    public function hasInvalidFileIndex(): bool
+    {
+        $backupFiles = $this->findBackups();
+        $hasInvalidFilesIndexBackup = false;
+
+ 
+        $backupValidator = WPStaging::make(BackupValidator::class);
+
+ 
+        foreach ($backupFiles as $file) {
+            if ($file->getExtension() !== 'wpstg') {
+                continue;
+            }
+
+            $isValidFileIndex = false;
+            try {
+                $isValidFileIndex = $this->validateBackupFileIndex($backupValidator, $file->getRealPath());
+            } catch (RuntimeException $ex) {
+                debug_log('Backup Validation: ' . $ex->getMessage());
+                continue;
+            }
+
+            if (!$isValidFileIndex) {
+                $hasInvalidFilesIndexBackup = true;
+                break;
+            }
+        }
+
+        return $hasInvalidFilesIndexBackup;
+    }
+
+
+
+
+
+
+
+
+    protected function validateBackupFileIndex(BackupValidator $backupValidator, string $backupPath): bool
+    {
+        $backupMetadata = new BackupMetadata();
+        $backupMetadata = $backupMetadata->hydrateByFilePath($backupPath);
+        $fileObject     = new FileObject($backupPath);
+
+        return $backupValidator->validateFileIndex($fileObject, $backupMetadata);
+    }
+
+
+
+
+
+
+
+    private function deleteBackupUnlessItsDownloadLinkSurvives(string $backupPath)
+    {
+        if (!file_exists($backupPath)) {
+            return;
+        }
+
+        $failureReason = WPStaging::make(BackupDeleter::class)->deleteBackupFile($backupPath);
+        if ($failureReason !== '') {
+            debug_log('WP STAGING: Kept the temporary backup ' . basename($backupPath) . '. ' . $failureReason);
+        }
+    }
+}

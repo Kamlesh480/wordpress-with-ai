@@ -1,0 +1,731 @@
+<?php
+
+namespace WPStaging\Backend\Modules\Jobs;
+
+use Exception;
+use mysqli;
+use stdClass;
+use wpdb;
+use WPStaging\Backend\Modules\Jobs\Exceptions\CloneNotFoundException;
+use WPStaging\Core\Utils\Logger;
+use WPStaging\Core\WPStaging;
+use WPStaging\Framework\Adapter\Database\DatabaseException;
+use WPStaging\Framework\Filesystem\Filesystem;
+use WPStaging\Framework\Database\WpDbInfo;
+use WPStaging\Framework\Filesystem\FilesystemExceptions;
+use WPStaging\Framework\Hosting\StagingSiteHttpDetector;
+use WPStaging\Staging\Sites;
+use WPStaging\Staging\PrefixOwnership;
+use WPStaging\Framework\Utils\Sanitize;
+use WPStaging\Framework\Utils\Strings;
+
+
+
+
+
+
+class Delete extends Job
+{
+
+
+
+    const DELETE_STATUS_FINISHED = 'finished';
+
+
+
+
+    const DELETE_STATUS_UNFINISHED = 'unfinished';
+
+
+
+
+    private $clone = false;
+
+
+
+
+
+    private $deleteDir;
+
+
+
+
+    private $tables = null;
+
+
+
+
+    private $job = null;
+
+
+
+
+    public $wpdb;
+
+
+
+
+    private $productionDb;
+
+
+
+
+    private $connectedToProductionDatabase;
+
+ 
+    private $lowerCaseTableNames;
+
+
+
+
+    private $isExternalDb;
+
+ 
+    private $strings;
+
+ 
+    private $sanitize;
+
+    public function __construct()
+    {
+        parent::__construct();
+
+ 
+        $this->sanitize  = WPStaging::make(Sanitize::class);
+        $this->deleteDir = !empty($_POST['deleteDir']) ? $this->sanitize->sanitizePath($_POST['deleteDir']) : '';
+        $this->strings   = new Strings();
+    }
+
+
+
+
+
+    public function setIsExternalDb(bool $isExternal = false)
+    {
+        $this->isExternalDb = $isExternal;
+    }
+
+
+
+
+
+
+    public function setData($clone = null): bool
+    {
+        if (!is_array($clone)) {
+            $this->getCloneRecords();
+        } else {
+            $this->clone = (object)$clone;
+        }
+
+ 
+        $this->cache->setFilename($this->getJobCacheFileName());
+
+        $this->productionDb                 = WPStaging::getInstance()->get("wpdb");
+        $this->connectedToProductionDatabase = null;
+        $this->lowerCaseTableNames           = null;
+
+        if (!$this->isExternalDatabase()) {
+            $this->wpdb = $this->productionDb;
+            $this->getTableRecords();
+            return true;
+        }
+
+        if ($this->isExternalDatabaseError()) {
+            return false;
+        }
+
+        $this->wpdb = $this->getExternalStagingDb();
+        $this->getTableRecords();
+        return true;
+    }
+
+
+
+
+
+    private function getExternalStagingDb(): wpdb
+    {
+        if (!empty($this->clone->databaseSsl) && !defined('MYSQL_CLIENT_FLAGS')) {
+            // phpcs:disable PHPCompatibility.Constants.NewConstants.mysqli_client_ssl_dont_verify_server_certFound
+            define('MYSQL_CLIENT_FLAGS', MYSQLI_CLIENT_SSL | MYSQLI_CLIENT_SSL_DONT_VERIFY_SERVER_CERT);
+        }
+
+        return new wpdb($this->clone->databaseUser, $this->clone->databasePassword, $this->clone->databaseDatabase, $this->clone->databaseServer);
+    }
+
+
+
+
+
+    public function getDbName(): string
+    {
+        return (string)$this->wpdb->dbname;
+    }
+
+
+
+
+
+    protected function isExternalDatabase(): bool
+    {
+        if (isset($this->isExternalDb)) {
+            return $this->isExternalDb;
+        }
+
+        return $this->externalDatabaseConfiguration->isEnabled($this->clone);
+    }
+
+
+
+
+
+
+    private function getCloneRecords($name = null)
+    {
+        if ($name === null && !isset($_POST["clone"])) {
+            $this->log("Clone name is not set", Logger::TYPE_FATAL);
+            $this->returnException("Clone name is not set");
+        }
+
+        if ($name === null) {
+            $name = $this->sanitize->sanitizeString($_POST["clone"]);
+        }
+
+        $clones = get_option(Sites::STAGING_SITES_OPTION, []);
+
+        if (empty($clones) || !isset($clones[$name])) {
+            $this->log("Couldn't find clone name $name or no existing clone", Logger::TYPE_FATAL);
+            $this->returnException("Couldn't find clone name $name or no existing clone");
+        }
+
+        $this->clone         = $clones[$name];
+        $this->clone["name"] = $name;
+
+        $this->clone = (object)$this->clone;
+
+        unset($clones);
+    }
+
+
+
+
+
+    private function getTableRecords()
+    {
+        $stagingPrefix = $this->getStagingPrefix();
+
+        if ($stagingPrefix === '') {
+            $this->tables = [];
+            return;
+        }
+
+        $escapedPrefix = str_replace(['_', '%'], ['\_', '\%'], $stagingPrefix);
+
+        $tables = $this->wpdb->get_results("SHOW TABLE STATUS LIKE '$escapedPrefix%'");
+
+        $this->tables = [];
+
+ 
+        if ($tables !== null) {
+            foreach ($tables as $table) {
+                $this->tables[] = [
+                    "name" => $table->Name,
+                    "size" => $this->utilsMath->formatSize($table->Data_length + $table->Index_length),
+                ];
+            }
+        }
+
+        $this->tables = json_decode(json_encode($this->tables));
+    }
+
+
+
+
+
+    private function getStagingPrefix(): string
+    {
+        $this->clone->prefix = $this->readStagingPrefix();
+
+        if ($this->stagingPrefixOverlapsProductionPrefix($this->clone->prefix)) {
+            $message = "Fatal Error: Can not delete staging site. Prefix '{$this->clone->prefix}' overlaps the production table prefix. Stopping for security reasons. Go to Sites > Actions > Edit Data and correct the table prefix or contact us.";
+            $this->log($message);
+            $this->returnException($message);
+        }
+
+        try {
+            if (!WPStaging::make(PrefixOwnership::class)->canDeleteTables($this->clone->prefix, (string)($this->clone->name ?? ''), $this->wpdb)) {
+                $this->tables = [];
+                return '';
+            }
+        } catch (Exception $exception) {
+            $this->log($exception->getMessage());
+            $this->returnException($exception->getMessage());
+        }
+
+        return $this->clone->prefix;
+    }
+
+
+
+
+    private function readStagingPrefix(): string
+    {
+        if ($this->isExternalDatabase() && !empty($this->clone->databasePrefix)) {
+            return $this->clone->databasePrefix;
+        }
+
+ 
+ 
+        if (empty($this->clone->prefix)) {
+            $path = ABSPATH . $this->clone->directoryName . "/wp-config.php";
+            if (($content = @file_get_contents($path)) === false) {
+                $this->log("Can not open $path. Can't read contents", Logger::TYPE_ERROR);
+            }
+
+            preg_match("/table_prefix\s*=\s*'(\w*)';/", $content, $matches);
+
+            if (!empty($matches[1])) {
+                $this->clone->prefix = $matches[1];
+            } else {
+                $this->returnException("Fatal Error: Can not delete staging site. Can not find Prefix. '$matches[1]'. Stopping for security reasons. Creating a new staging site will likely resolve this the next time. Contact support@wp-staging.com");
+            }
+        }
+
+        if (empty($this->clone->prefix)) {
+            $this->returnException("Fatal Error: Can not delete staging site. Can not find table prefix. Contact support@wp-staging.com");
+        }
+
+        return (string)$this->clone->prefix;
+    }
+
+
+
+
+
+
+
+
+    private function stagingPrefixOverlapsProductionPrefix(string $stagingPrefix): bool
+    {
+        if (!$this->isConnectedToProductionDatabase()) {
+            return false;
+        }
+
+        $productionPrefix = strtolower($this->productionDb->base_prefix ?: $this->productionDb->prefix);
+        $stagingPrefix    = strtolower($stagingPrefix);
+
+        return $this->strings->startsWith($productionPrefix, $stagingPrefix)
+            || $this->strings->startsWith($stagingPrefix, $productionPrefix);
+    }
+
+
+
+
+    public function getClone()
+    {
+        return $this->clone;
+    }
+
+
+
+
+    public function getTables()
+    {
+        return $this->tables;
+    }
+
+
+
+
+
+
+
+
+    public function start($clone = null)
+    {
+ 
+        $this->setData($clone);
+
+ 
+        $this->getJob();
+
+        $method = "delete" . ucwords($this->job->current);
+
+        if (method_exists($this, $method)) {
+            $this->{$method}();
+            return;
+        }
+
+ 
+ 
+        $this->cache->delete();
+        $this->start($clone);
+    }
+
+
+
+
+
+
+    public function getJob()
+    {
+        $this->job = $this->cache->get();
+        $this->job = json_decode(json_encode($this->job)); 
+
+        if ($this->job !== null && isset($this->job->current)) {
+            return;
+        }
+
+ 
+        $this->job = (object)[
+            "current"               => "tables",
+            "nextDirectoryToDelete" => $this->clone->path,
+            "name"                  => $this->clone->name,
+        ];
+
+        $this->cache->save($this->job);
+    }
+
+
+
+
+
+    private function updateJob(): bool
+    {
+        $this->job->nextDirectoryToDelete = trim($this->job->nextDirectoryToDelete);
+        $result = $this->cache->save($this->job);
+
+        return $result !== false;
+    }
+
+
+
+
+    private function getTablesToRemove(): array
+    {
+        $tables = $this->getTableNames();
+
+        if (!isset($_POST["excludedTables"]) || !is_array($_POST["excludedTables"]) || empty($_POST["excludedTables"])) {
+            return $tables;
+        }
+
+ 
+        $sanitizedExcludedTables = $this->sanitize->sanitizeArrayString($_POST["excludedTables"]);
+
+        return array_diff($tables, $sanitizedExcludedTables);
+    }
+
+
+
+
+    private function getTableNames(): array
+    {
+        return (!is_array($this->tables)) ? [] : array_map(function ($value) {
+            return ($value->name);
+        }, $this->tables);
+    }
+
+
+
+
+
+
+
+    public function deleteTables()
+    {
+
+        if ($this->isOverThreshold()) {
+            $this->log("Deleting: Is over threshold");
+            return;
+        }
+
+        $stagingPrefix = $this->getStagingPrefix();
+        $tables        = $this->getTablesToRemove();
+
+        foreach ($tables as $table) {
+            if ($this->isConnectedToProductionDatabase() && !$this->tableNameStartsWithPrefix($table, $stagingPrefix)) {
+                $this->log("Fatal Error: Trying to delete table $table of main WP installation!", Logger::TYPE_CRITICAL);
+                $this->returnException("Fatal Error: Can not delete staging site. Table '$table' does not carry the staging site prefix '$stagingPrefix' and lives in the production database. Stopping for security reasons. Go to Sites > Actions > Edit Data and correct the table prefix or contact support@wp-staging.com");
+            }
+
+            $this->wpdb->query("DROP TABLE `" . str_replace("`", "``", $table) . "`");
+        }
+
+ 
+        $this->job->current = "directory";
+        $this->updateJob();
+    }
+
+
+
+
+
+
+
+
+    private function tableNameStartsWithPrefix(string $table, string $prefix): bool
+    {
+        if (in_array($this->getLowerCaseTableNames(), ['1', '2'], true)) {
+            return $this->strings->startsWith(strtolower($table), strtolower($prefix));
+        }
+
+        return $this->strings->startsWith($table, $prefix);
+    }
+
+
+
+
+
+
+    private function getLowerCaseTableNames(): string
+    {
+        if ($this->lowerCaseTableNames === null) {
+            $this->lowerCaseTableNames = (string)$this->wpdb->get_var('SELECT @@lower_case_table_names');
+        }
+
+        return $this->lowerCaseTableNames;
+    }
+
+
+
+
+
+
+
+    private function isConnectedToProductionDatabase(): bool
+    {
+        if ($this->connectedToProductionDatabase === null) {
+            $this->connectedToProductionDatabase = $this->connectionAnswersAsProductionDatabase();
+        }
+
+        return $this->connectedToProductionDatabase;
+    }
+
+
+
+
+
+
+    private function connectionAnswersAsProductionDatabase(): bool
+    {
+        if ($this->wpdb === $this->productionDb) {
+            return true;
+        }
+
+        if ($this->wpdb->dbname !== $this->productionDb->dbname) {
+            if ($this->getLowerCaseTableNames() === '0' || strcasecmp($this->wpdb->dbname, $this->productionDb->dbname) !== 0) {
+                return false;
+            }
+        }
+
+        return !$this->serversAreProvenDifferent(new WpDbInfo($this->wpdb), new WpDbInfo($this->productionDb));
+    }
+
+
+
+
+
+
+
+
+
+    private function serversAreProvenDifferent(WpDbInfo $connectedDbInfo, WpDbInfo $productionDbInfo): bool
+    {
+        if ($connectedDbInfo->getServerIp() === '' || $productionDbInfo->getServerIp() === '') {
+            return false;
+        }
+
+        return $connectedDbInfo->getServer() !== $productionDbInfo->getServer();
+    }
+
+
+
+
+
+
+    public function deleteDirectory()
+    {
+        if ($this->isFatalError()) {
+            $this->returnException('Can not delete directory: ' . $this->deleteDir . '. This seems to be the root directory. Exclude this directory from deleting and try again.');
+            throw new Exception('Can not delete directory: ' . $this->deleteDir . ' This seems to be the root directory. Exclude this directory from deleting and try again.');
+        }
+
+ 
+        if (
+            empty($this->deleteDir) ||
+            $this->deleteDir === get_home_path() ||
+            !is_dir($this->deleteDir)
+        ) {
+            $this->job->current = "finish";
+            $this->updateJob();
+            $this->deleteFinish();
+            return;
+        }
+
+        $this->log("Delete staging site: " . $this->clone->path);
+
+ 
+        if ($this->deleteDir === get_home_path()) {
+            $this->log("Fatal Error 8: Trying to delete root of WP installation!", Logger::TYPE_CRITICAL);
+            $this->returnException('Fatal Error 8: Trying to delete root of WP installation!');
+        }
+
+ 
+        if ($this->isOverThreshold()) {
+            return;
+        }
+
+        $clone        = (string)$this->clone->path;
+        $errorMessage = sprintf(__('We could not delete the staging site completely. There are still files in the folder %s that could not be deleted. This could be a write permission issue. Try to delete the folder manually by using FTP or a file manager plugin.<br/> If this happens again please contact us at support@wp-staging.com', 'wp-staging'), $clone);
+        $deleteStatus = self::DELETE_STATUS_FINISHED;
+        $isDeleted    = false;
+
+        try {
+            $isDeleted = $this->cleanStagingDirectory($this->deleteDir);
+        } catch (FilesystemExceptions $ex) {
+            $errorMessage = $ex->getMessage();
+            $deleteStatus = self::DELETE_STATUS_UNFINISHED;
+        }
+
+ 
+        if (!$isDeleted && $deleteStatus !== self::DELETE_STATUS_UNFINISHED) {
+            return;
+        }
+
+ 
+        if (!(new Filesystem())->isEmptyDir($this->deleteDir)) {
+            $response = [
+                'job'     => 'delete',
+                'status'  => true,
+                'delete'  => $deleteStatus,
+                'message' => $errorMessage,
+                'error'   => true,
+            ];
+            wp_die(json_encode($response));
+        }
+
+ 
+        $this->deleteFinish();
+    }
+
+
+
+
+
+
+    protected function cleanStagingDirectory(string $deleteDir): bool
+    {
+        if (!is_dir($deleteDir)) {
+            return true;
+        }
+
+ 
+        $fs = (new Filesystem())
+            ->setShouldStop([$this, 'isOverThreshold'])
+            ->shouldPermissionExceptionsBypass(true)
+            ->setRecursive();
+
+        try {
+            if (!$fs->delete($this->deleteDir)) {
+                return false;
+            }
+        } catch (FilesystemExceptions $ex) {
+            throw $ex;
+        }
+
+        return true;
+    }
+
+
+
+
+    public function isFatalError(): bool
+    {
+        $homePath = rtrim(get_home_path(), "/");
+        return $homePath === rtrim($this->deleteDir, "/");
+    }
+
+
+
+
+
+
+    public function deleteFinish()
+    {
+        $response = [
+            'delete' => self::DELETE_STATUS_FINISHED,
+        ];
+
+        $sitesHelper        = WPStaging::make(Sites::class);
+        $optionIsUnreadable = $sitesHelper->stagingSitesOptionIsUnreadable();
+        $existingClones     = $sitesHelper->tryGettingStagingSites();
+
+ 
+        $this->log("Verifying existing clones...");
+        foreach ($existingClones as $name => $clone) {
+            if ($clone["path"] === $this->clone->path) {
+                unset($existingClones[$name]);
+                WPStaging::make(StagingSiteHttpDetector::class)->unscheduleCheck((string)$name);
+            }
+        }
+
+        if ($optionIsUnreadable) {
+            $this->log("Delete: The staging sites option can not be read, so it is left for the repair notice.", Logger::TYPE_WARNING);
+        } elseif (update_option(Sites::STAGING_SITES_OPTION, $existingClones, false) === false) {
+            $this->log("Delete: Nothing to save.'");
+        }
+
+ 
+        $this->cache->delete();
+        $this->cloneOptionCache->delete();
+
+        wp_die(json_encode($response));
+    }
+
+
+
+
+
+
+
+
+    private function isExternalDatabaseError(): bool
+    {
+        try {
+            $this->externalDatabaseConfiguration->validateConnectionTarget($this->clone);
+        } catch (DatabaseException $exception) {
+            return true;
+        }
+
+        if ($this->clone->databaseSsl) {
+ 
+            if (!defined('MYSQL_CLIENT_FLAGS')) {
+                // phpcs:disable PHPCompatibility.Constants.NewConstants.mysqli_client_ssl_dont_verify_server_certFound
+                define('MYSQL_CLIENT_FLAGS', MYSQLI_CLIENT_SSL | MYSQLI_CLIENT_SSL_DONT_VERIFY_SERVER_CERT);
+            }
+
+            $db = mysqli_init();
+            // @phpstan-ignore-next-line - null is valid for port and socket parameters
+            $db->real_connect($this->clone->databaseServer, $this->clone->databaseUser, $this->clone->databasePassword, $this->clone->databaseDatabase, null, null, MYSQL_CLIENT_FLAGS);
+        } else {
+            $db = new mysqli($this->clone->databaseServer, $this->clone->databaseUser, $this->clone->databasePassword, $this->clone->databaseDatabase);
+        }
+
+        if ($db->connect_error) {
+            return true;
+        }
+
+        return false;
+    }
+
+
+
+
+
+
+    private function getJobCacheFileName(): string
+    {
+        return "delete_job_{$this->clone->name}";
+    }
+}

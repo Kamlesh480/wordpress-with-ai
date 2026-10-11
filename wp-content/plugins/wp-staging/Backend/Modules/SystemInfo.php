@@ -1,0 +1,1218 @@
+<?php
+
+namespace WPStaging\Backend\Modules;
+
+use WPStaging\Backend\Optimizer\Optimizer;
+use WPStaging\Backend\Upgrade\Upgrade;
+use WPStaging\Backup\Ajax\FileList\ListableBackupsCollection;
+use WPStaging\Backup\Storage\Providers;
+use WPStaging\Core\Utils\Browser;
+use WPStaging\Core\WPStaging;
+use WPStaging\Core\Utils\Multisite;
+use WPStaging\Framework\Facades\Info;
+use WPStaging\Framework\Utils\Urls;
+use WPStaging\Framework\Adapter\Database;
+use WPStaging\Framework\BackgroundProcessing\Queue;
+use WPStaging\Pro\License\Licensing;
+use WPStaging\Framework\Facades\Sanitize;
+use WPStaging\Notifications\Notifications;
+use WPStaging\Staging\Sites;
+use WPStaging\Framework\SiteInfo;
+use WPStaging\Framework\Database\WpOptionsInfo;
+use WPStaging\Framework\Security\DataEncryption;
+use WPStaging\Backup\BackupScheduler;
+
+ 
+if (!defined("WPINC")) {
+    die;
+}
+
+
+
+
+
+class SystemInfo
+{
+
+
+
+    const REMOVED_LABEL = '[REMOVED]';
+
+
+
+
+    const NOT_SET_LABEL = '[not set]';
+
+
+
+
+    private $isMultiSite;
+
+
+
+
+    private $database;
+
+
+
+
+    private $urlsHelper;
+
+
+
+
+    private $wpOptionsInfo;
+
+
+
+
+    private $isEncodeProLicense = false;
+
+ 
+    private $siteInfo;
+
+
+
+
+    private $enableStructuredOutput = false;
+
+
+
+
+    private $structuredData = [];
+
+
+
+
+    private $currentSection = null;
+
+    public function __construct()
+    {
+        $this->isMultiSite   = is_multisite();
+        $this->urlsHelper    = WPStaging::make(Urls::class);
+        $this->database      = WPStaging::make(Database::class);
+        $this->wpOptionsInfo = WPStaging::make(WpOptionsInfo::class);
+        $this->siteInfo      = WPStaging::make(SiteInfo::class);
+    }
+
+    public function __toString(): string
+    {
+        return $this->get();
+    }
+
+    public function setStructuredOutput(bool $enable = true)
+    {
+        $this->enableStructuredOutput = $enable;
+        if ($enable) {
+            $this->structuredData = [];
+        }
+    }
+
+    public function getSections(): array
+    {
+        $this->setStructuredOutput(true);
+        $this->get(); 
+        return $this->getStructuredDataWithDisplayNames();
+    }
+
+    public function get(): string
+    {
+        $output  = $this->server();
+        $output .= $this->php();
+        $output .= $this->wp();
+        $output .= $this->getMultisiteInfo();
+        $output .= $this->wpstaging();
+        $output .= $this->plugins();
+        $output .= $this->muPlugins();
+        $output .= $this->dropIns();
+        $output .= $this->multiSitePlugins();
+        $output .= $this->phpExtensions();
+        $output .= $this->browser();
+        $output .= PHP_EOL . "### End System Info ###";
+
+        return $output;
+    }
+
+    public function header(string $string): string
+    {
+        $this->currentSection = $string;
+        return PHP_EOL . "### {$string} ###" . PHP_EOL . PHP_EOL;
+    }
+
+
+
+
+    public function info(string $title, $value): string
+    {
+ 
+        if ($this->enableStructuredOutput) {
+            if (!isset($this->structuredData[$this->currentSection])) {
+                $this->structuredData[$this->currentSection] = [];
+            }
+
+            $this->structuredData[$this->currentSection][] = [
+                'label' => rtrim($title, ':'),
+                'value' => $value,
+            ];
+        }
+
+        return str_pad($title, 56, ' ', STR_PAD_RIGHT) . print_r($value, true) . PHP_EOL;
+    }
+
+
+
+
+
+
+    public function getStructuredDataWithDisplayNames(): array
+    {
+        $data = [];
+        foreach ($this->structuredData as $sectionId => $items) {
+            $displayName        = SystemInfoParser::getDisplayName($sectionId);
+            $data[$displayName] = $items;
+        }
+
+        return $data;
+    }
+
+
+
+
+
+    public function wp(): string
+    {
+ 
+        $this->currentSection = SystemInfoParser::SECTIONS['WORDPRESS_ENVIRONMENT']['id'];
+        $output  = $this->info("Site Type:", ($this->isMultiSite) ? 'Multi Site' : 'Single Site');
+        $output .= $this->info("WordPress Version:", get_bloginfo("version"));
+        $output .= $this->info("Installed in Subdirectory:", ($this->isSubDir() ? 'Yes' : 'No'));
+        $output .= $this->info("WP_DEBUG:", (defined("WP_DEBUG")) ? (WP_DEBUG ? "Enabled" : "Disabled") : self::NOT_SET_LABEL);
+        $output .= $this->info("WPLANG:", (defined("WPLANG") && WPLANG) ? WPLANG : "en_US");
+        $output .= $this->wpRemotePost();
+
+ 
+        $this->currentSection = SystemInfoParser::SECTIONS['URLS_PATHS']['id'];
+        $output .= $this->info("Site URL:", site_url());
+        $output .= $this->info("Home URL:", $this->urlsHelper->getHomeUrl());
+        $output .= $this->info("Home Path:", get_home_path());
+        $output .= $this->info("ABSPATH:", ABSPATH);
+        $permissions = fileperms(ABSPATH);
+        if ($permissions !== false) {
+            $output .= $this->info("ABSPATH Fileperms:", (string)$permissions);
+            $permissions = substr(sprintf('%o', $permissions), -4);
+            $output .= $this->info("ABSPATH Permissions:", $permissions);
+        } else {
+            $output .= $this->info("ABSPATH Permissions:", "N/A");
+        }
+
+        $absPathStat = stat(ABSPATH);
+        if (!$absPathStat) {
+            $absPathStat = "";
+        }
+
+        if ($this->enableStructuredOutput) {
+            $output .= $this->info("ABSPATH Stat:", $absPathStat);
+        } else {
+            $output .= $this->info("ABSPATH Stat:", json_encode($absPathStat));
+        }
+
+ 
+        $this->currentSection = SystemInfoParser::SECTIONS['WORDPRESS_DIRECTORIES']['id'];
+        $output .= $this->constantInfo('WP_CONTENT_DIR');
+        $output .= $this->constantInfo('WP_PLUGIN_DIR');
+        $output .= $this->info("Is wp-content Symlink:", is_link(WP_CONTENT_DIR) ? 'Yes' : 'No');
+        $output .= $this->info("Symlinks Disabled:", Info::canUse('symlink') === false ? 'Yes' : 'No');
+        if (is_link(WP_CONTENT_DIR)) {
+            $output .= $this->info("wp-content link target:", readlink(WP_CONTENT_DIR));
+            $output .= $this->info("wp-content realpath:", realpath(WP_CONTENT_DIR));
+        }
+
+        $output .= $this->constantInfo('WP_TEMP_DIR');
+
+ 
+        $this->currentSection = SystemInfoParser::SECTIONS['MEDIA_UPLOADS']['id'];
+        $output .= $this->constantInfo('UPLOADS');
+        $uploads = wp_upload_dir();
+        $output .= $this->info("Uploads Base Dir:", $uploads['basedir']);
+        $output .= $this->info("Uploads URL:", $uploads['url']);
+        $output .= $this->info("Uploads Path:", $uploads['path']);
+        $output .= $this->info("Uploads Subdir:", $uploads['subdir']);
+        $output .= $this->info("Uploads Base URL:", $uploads['baseurl']);
+        $output .= $this->info("UPLOADS Constant:", (defined("UPLOADS")) ? UPLOADS : self::NOT_SET_LABEL);
+        $output .= $this->info("UPLOAD_PATH (wp-config.php):", (defined("UPLOAD_PATH")) ? UPLOAD_PATH : self::NOT_SET_LABEL);
+        $tableName  = $this->database->getPrefix() . 'options';
+        $output .= $this->info("upload_path ($tableName):", get_option("upload_path") ?: self::NOT_SET_LABEL);
+
+ 
+        $this->currentSection = SystemInfoParser::SECTIONS['WORDPRESS_MEMORY_SETTINGS']['id'];
+        $output .= $this->constantInfo('WP_MEMORY_LIMIT');
+        $output .= $this->constantInfo('WP_MAX_MEMORY_LIMIT');
+
+ 
+        $this->currentSection = SystemInfoParser::SECTIONS['FILESYSTEM_PERMISSIONS']['id'];
+        $output .= $this->constantInfo('FS_CHMOD_DIR');
+        $output .= $this->constantInfo('FS_CHMOD_FILE');
+
+ 
+        $this->currentSection = SystemInfoParser::SECTIONS['THEME_PERMALINKS']['id'];
+        $settings = (object)get_option('wpstg_settings', []);
+        $output  .= $this->info("Active Theme:", $this->theme());
+        $output  .= $this->info("Permalink Structure:", get_option("permalink_structure") ?: "Default");
+        $output  .= $this->info("Keep Permalinks:", isset($settings->keepPermalinks) ? $settings->keepPermalinks : self::NOT_SET_LABEL);
+
+ 
+        $this->currentSection = SystemInfoParser::SECTIONS['WORDPRESS_CRON_JOBS']['id'];
+        $cron    = get_option('cron', []);
+        $output .= $this->info("WP-Cron Enabled:", (!defined('DISABLE_WP_CRON') || !DISABLE_WP_CRON) ? 'Yes' : 'No');
+        $output .= $this->info("Scheduled Events:", !empty($cron) ? count($cron) . ' events' : 'No events');
+        if ($this->enableStructuredOutput) {
+            $output .= $this->info("Wordpress cron:", $cron);
+        } else {
+            $output .= $this->info("Wordpress cron:", wp_json_encode($cron));
+        }
+
+        $backupSchedules = get_option('wpstg_backup_schedules', []);
+        if (!empty($backupSchedules)) {
+            $output .= $this->info("Backup Schedule:", $backupSchedules);
+        } else {
+            $output .= $this->info('Backup Schedule:', self::NOT_SET_LABEL);
+        }
+
+        return $output;
+    }
+
+
+
+
+
+    public function theme(): string
+    {
+ 
+        if (get_bloginfo("version") < "3.4") {
+            $themeData = get_theme_data(get_stylesheet_directory() . "/style.css");
+            return "{$themeData["Name"]} (v{$themeData["Version"]})";
+        }
+
+        $themeData = wp_get_theme();
+        return "{$themeData->Name} (v{$themeData->Version})";
+    }
+
+
+
+
+
+    private function getMultisiteInfo(): string
+    {
+        if (!$this->isMultiSite) {
+            return '';
+        }
+
+        $this->currentSection = SystemInfoParser::SECTIONS['MULTISITE']['id'];
+        $multisite = new Multisite();
+
+        $output = $this->info("Multisite:", "Yes");
+        $output .= $this->info("Multisite Blog ID:", (string)get_current_blog_id());
+        $output .= $this->info("MultiSite URL:", $multisite->getHomeURL());
+        $output .= $this->info("MultiSite URL without scheme:", $multisite->getHomeUrlWithoutScheme());
+        $output .= $this->info("MultiSite is Main Site:", is_main_site() ? 'Yes' : 'No');
+
+        $output .= $this->constantInfo('SUBDOMAIN_INSTALL');
+        $output .= $this->constantInfo('DOMAIN_CURRENT_SITE');
+        $output .= $this->constantInfo('PATH_CURRENT_SITE');
+        $output .= $this->constantInfo('SITE_ID_CURRENT_SITE');
+        $output .= $this->constantInfo('BLOG_ID_CURRENT_SITE');
+
+        $networkSites = get_sites();
+        if ($this->enableStructuredOutput) {
+            $output .= $this->info("Network Sites", $networkSites);
+            return $output;
+        }
+
+        $output .= PHP_EOL . $this->info("Network Sites:", count($networkSites)) . PHP_EOL;
+        foreach ($networkSites as $site) {
+            $siteDetails = get_blog_details($site->blog_id);
+            if (!$siteDetails) {
+                continue;
+            }
+
+            $output .= $this->info("Blog ID:", $site->blog_id);
+            $output .= $this->info("Home URL:", get_home_url($site->blog_id));
+            $output .= $this->info("Site URL:", get_site_url($site->blog_id));
+            $output .= $this->info("Domain:", $site->domain);
+            $output .= $this->info("Path:", $site->path);
+            $output .= PHP_EOL;
+        }
+
+        return $output;
+    }
+
+
+
+
+
+    public function wpstaging(): string
+    {
+        $settings                               = (object)get_option('wpstg_settings', []);
+        $optionBackupScheduleErrorReport        = get_option(BackupScheduler::OPTION_BACKUP_SCHEDULE_ERROR_REPORT);
+        $optionBackupScheduleWarningReport      = get_option(BackupScheduler::OPTION_BACKUP_SCHEDULE_WARNING_REPORT);
+        $optionBackupScheduleGeneralReport      = get_option(BackupScheduler::OPTION_BACKUP_SCHEDULE_GENERAL_REPORT);
+        $optionBackupScheduleReportEmail        = get_option(Notifications::OPTION_BACKUP_SCHEDULE_REPORT_EMAIL);
+        $optionBackupScheduleSlackErrorReport   = get_option(BackupScheduler::OPTION_BACKUP_SCHEDULE_SLACK_ERROR_REPORT);
+        $optionBackupScheduleReportSlackWebhook = get_option(BackupScheduler::OPTION_BACKUP_SCHEDULE_REPORT_SLACK_WEBHOOK);
+        $wpStagingFreeVersion                   = wpstgGetPluginData('wp-staging.php');
+        $output                                 = PHP_EOL . "## WP Staging ##" . PHP_EOL . PHP_EOL;
+
+ 
+        $this->currentSection = SystemInfoParser::SECTIONS['WP_STAGING_PLUGIN_INFO']['id'];
+        $output .= $this->info("Pro License Key:", $this->getLicenseKey() ?: self::NOT_SET_LABEL);
+        $output .= $this->info("Pro Version:", get_option('wpstgpro_version', self::NOT_SET_LABEL));
+        $output .= $this->info("Pro Install Date:", get_option('wpstgpro_install_date', self::NOT_SET_LABEL));
+        $output .= $this->info("Updated from Pro Version:", get_option('wpstgpro_version_upgraded_from') ?: self::NOT_SET_LABEL);
+        $output .= $this->info("Pro Update Date:", get_option('wpstgpro_upgrade_date', self::NOT_SET_LABEL));
+        $output .= $this->info("Free Version:", empty($wpStagingFreeVersion['Version']) ? self::NOT_SET_LABEL : $wpStagingFreeVersion['Version']);
+        $output .= $this->info("Free Install Date:", get_option(Upgrade::OPTION_INSTALL_DATE, self::NOT_SET_LABEL));
+        $output .= $this->info("Free Update Date:", get_option(Upgrade::OPTION_UPGRADE_DATE, self::NOT_SET_LABEL));
+        $output .= $this->info("Updated from Free Version:", get_option('wpstg_version_upgraded_from') ?: self::NOT_SET_LABEL);
+        $output .= $this->info("Free or Pro Install Date (legacy):", get_option('wpstg_installDate', self::NOT_SET_LABEL));
+        $output .= $this->info("Is Staging Site:", $this->siteInfo->isStagingSite() ? 'Yes' : 'No');
+
+        $this->currentSection = SystemInfoParser::SECTIONS['WP_STAGING_BACKUP_STATUS']['id'];
+        $output .= $this->getBackupDetails();
+        $output .= $this->getQueueInfo();
+
+ 
+        $this->currentSection = SystemInfoParser::SECTIONS['WP_STAGING_PERFORMANCE']['id'];
+        $output .= $this->info("DB Query Limit:", $this->getSettingValue($settings, 'queryLimit', true));
+        $output .= $this->info("Search & Replace Limit:", $this->getSettingValue($settings, 'querySRLimit', true));
+        $output .= $this->info("File Copy Limit:", $this->getSettingValue($settings, 'fileLimit', true));
+        $output .= $this->info("Maximum File Size:", $this->getSettingValue($settings, 'maxFileSize'));
+        $output .= $this->info("File Copy Batch Size:", $this->getSettingValue($settings, 'batchSize'));
+        $cpuLoad = $this->getSettingValue($settings, 'cpuLoad');
+        $output .= $this->info("CPU Load Priority:", $cpuLoad !== self::NOT_SET_LABEL ? ucfirst(strtolower($cpuLoad)) : $cpuLoad);
+        $output .= $this->info("Optimizer Enabled:", $this->getOptimizerStatus($settings));
+        $output .= $this->info("Backup Compression:", isset($settings->enableCompression) ? ($settings->enableCompression ? 'On' : 'Off') : self::NOT_SET_LABEL);
+        $output .= $this->info("Debug Mode Enabled:", isset($settings->debugMode) && $settings->debugMode ? 'Yes' : 'No');
+ 
+        $this->currentSection = SystemInfoParser::SECTIONS['WP_STAGING_ACCESS']['id'];
+        $userRoles = isset($settings->userRoles) ? $settings->userRoles : [];
+        if (is_array($userRoles) && !empty($userRoles)) {
+            $rolesList = implode(', ', array_map('ucfirst', $userRoles));
+        } else {
+            $rolesList = self::NOT_SET_LABEL;
+        }
+
+        $output .= $this->info("Allowed Roles:", $rolesList);
+        $usersWithAccess = isset($settings->usersWithStagingAccess) ? $settings->usersWithStagingAccess : [];
+        if (is_array($usersWithAccess) && !empty($usersWithAccess)) {
+            $usersList = implode(', ', $usersWithAccess);
+        } else {
+            $usersList = 'Not listed';
+        }
+
+        $output .= $this->info("Users with Staging Access:", $usersList);
+        $output .= $this->info("Delete Data on Uninstall:", isset($settings->unInstallOnDelete) ? ($settings->unInstallOnDelete ? 'Yes' : 'No') : self::NOT_SET_LABEL);
+        $output .= $this->info("Send Usage Information:", !empty(get_option('wpstg_analytics_has_consent')) ? 'true' : 'false');
+        $output .= $this->info("Send Backup Errors via Email:", $this->formatBooleanOption($optionBackupScheduleErrorReport));
+        $output .= $this->info("Send Backup Warnings via Email:", $this->formatBooleanOption($optionBackupScheduleWarningReport));
+        $output .= $this->info("Send Backup General Report via Email:", $this->formatBooleanOption($optionBackupScheduleGeneralReport));
+        $output .= $this->info("Email Address:", !empty($optionBackupScheduleReportEmail) && is_email($optionBackupScheduleReportEmail) ? $optionBackupScheduleReportEmail : self::NOT_SET_LABEL);
+        $output .= $this->info("Send Backup Errors via Slack Webhook:", $this->formatBooleanOption($optionBackupScheduleSlackErrorReport) === 'true' ? 'true' : (WPStaging::isPro() ? 'false' : self::NOT_SET_LABEL));
+        $output .= $this->info("Slack Webhook URL:", WPStaging::isPro() && !empty($optionBackupScheduleReportSlackWebhook) ? self::REMOVED_LABEL : self::NOT_SET_LABEL);
+
+        $this->currentSection = SystemInfoParser::SECTIONS['WP_STAGING_STORAGE_PROVIDER']['id'];
+ 
+        $parser            = WPStaging::make(SystemInfoParser::class);
+        $storageProviders = $parser->getStorageProvidersForSystemInfo();
+        foreach ($storageProviders as $provider) {
+            $output .= $this->formatStorageSettings($provider['id'], $provider['title']);
+        }
+
+        $this->currentSection = SystemInfoParser::SECTIONS['WP_STAGING_EXISTING_SITES']['id'];
+        if (!$this->enableStructuredOutput) {
+            $output .= PHP_EOL . "-- Existing Staging Sites" . PHP_EOL . PHP_EOL;
+        }
+
+        $stagingSites = get_option(Sites::STAGING_SITES_OPTION, []);
+        if (is_array($stagingSites)) {
+            foreach ($stagingSites as $key => $clone) {
+                $path = !empty($clone['path']) ? $clone['path'] : self::NOT_SET_LABEL;
+                if ($this->enableStructuredOutput) {
+                    $clone['wpVersion'] = $this->getStagingWpVersion($path);
+                    $stagingSites[$key] = $clone;
+                    continue;
+                }
+
+                $output .= $this->info("Number:", isset($clone['number']) ? $clone['number'] : self::NOT_SET_LABEL);
+                $output .= $this->info("directoryName:", isset($clone['directoryName']) ? $clone['directoryName'] : self::NOT_SET_LABEL);
+                $output .= $this->info("Path:", $path);
+                $output .= $this->info("URL:", isset($clone['url']) ? $clone['url'] : self::NOT_SET_LABEL);
+                $output .= $this->info("DB Prefix:", isset($clone['prefix']) ? $clone['prefix'] : self::NOT_SET_LABEL);
+                $output .= $this->info("DB Prefix wp-config.php:", $this->getStagingPrefix($clone));
+                $output .= $this->info("WP STAGING Version:", isset($clone['version']) ? $clone['version'] : self::NOT_SET_LABEL);
+                $output .= $this->info("WP Version:", $this->getStagingWpVersion($path)) . PHP_EOL . PHP_EOL;
+            }
+        }
+
+        $stagingSites = $this->sanitizeSitePasswords(is_array($stagingSites) ? $stagingSites : []);
+        $stagingSitesOptionBackup = $this->sanitizeSitePasswords((array)get_option(Sites::BACKUP_STAGING_SITES_OPTION, []));
+
+        $output .= $this->info(Sites::STAGING_SITES_OPTION . ": ", serialize($stagingSites));
+        $output .= $this->info(Sites::BACKUP_STAGING_SITES_OPTION . ": ", serialize($stagingSitesOptionBackup));
+        return $output;
+    }
+
+    public function getWpStagingVersion(): string
+    {
+        if (defined('WPSTGPRO_VERSION')) {
+            return 'Pro ' . WPSTGPRO_VERSION;
+        }
+
+        if (defined('WPSTG_VERSION')) {
+            return WPSTG_VERSION;
+        }
+
+        return 'unknown';
+    }
+
+
+
+
+
+    public function browser(): string
+    {
+        $this->currentSection = SystemInfoParser::SECTIONS['CLIENT_BROWSER_INFO']['id'];
+        $output = $this->header("Client / Browser Information");
+        $browser = new Browser();
+        $browserInfo = (string)$browser;
+
+ 
+ 
+        if ($this->enableStructuredOutput) {
+            $lines = explode("\n", trim($browserInfo));
+            foreach ($lines as $line) {
+                $line = trim($line);
+                if (empty($line)) {
+                    continue;
+                }
+
+ 
+                if (preg_match('/^(.{1,56})\s+(.+)$/', $line, $matches)) {
+                    $label = trim($matches[1]);
+                    $value = trim($matches[2]);
+                    $this->info($label, $value);
+                } else {
+                    $this->info('', $line);
+                }
+            }
+        }
+
+        $output .= $browserInfo;
+        return $output;
+    }
+
+
+
+
+
+    public function wpRemotePost(): string
+    {
+ 
+        $wpRemotePost = "does not work";
+
+ 
+ 
+        $hostName = 'www.paypal.com';
+        $hostIp   = gethostbyname($hostName);
+        if (preg_match('@\.0$@', $hostIp)) {
+            return $this->info("wp_remote_post():", $wpRemotePost);
+        }
+
+ 
+        $response = wp_remote_post(
+            "https://" . $hostName . "/cgi-bin/webscr",
+            [
+                "sslverify"  => false,
+                "timeout"    => 60,
+                "user-agent" => "WPSTG/" . WPStaging::getVersion(),
+                "body"       => ["cmd" => "_notify-validate"],
+            ]
+        );
+
+ 
+        if (!is_wp_error($response) && $response["response"]["code"] >= 200 && $response["response"]["code"] < 300) {
+            $wpRemotePost = "works";
+        }
+
+        return $this->info("wp_remote_post():", $wpRemotePost);
+    }
+
+
+
+
+
+
+
+    public function activePlugins(array $allAvailablePlugins, array $activePlugins): string
+    {
+        $this->currentSection = SystemInfoParser::SECTIONS['PLUGINS_OVERVIEW']['id'];
+        $output = $this->header("Active Plugins");
+
+        foreach ($allAvailablePlugins as $path => $plugin) {
+            if (!in_array($path, $activePlugins)) {
+                continue;
+            }
+
+            $output .= $this->info($plugin["Name"] . ":", $plugin["Version"]);
+        }
+
+        return $output;
+    }
+
+
+
+
+
+
+
+    public function inactivePlugins(array $allAvailablePlugins, array $activePlugins): string
+    {
+        $this->currentSection = SystemInfoParser::SECTIONS['PLUGINS_OVERVIEW']['id'];
+        if ($this->isMultiSite) {
+            $output = $this->header("Inactive Plugins (Includes this and other sites in the same network)");
+        } else {
+            $output = $this->header("Inactive Plugins");
+        }
+
+        foreach ($allAvailablePlugins as $path => $plugin) {
+            if (in_array($path, $activePlugins)) {
+                continue;
+            }
+
+            $output .= $this->info($plugin["Name"] . ":", $plugin["Version"]);
+        }
+
+        return $output;
+    }
+
+
+
+
+
+    public function plugins(): string
+    {
+ 
+        $allAvailablePlugins = get_plugins();
+        $activePlugins       = get_option("active_plugins", []);
+
+        $activePluginsToGetInactive = $activePlugins;
+        if ($this->isMultiSite) {
+            $networkActivePlugins       = array_keys(get_site_option("active_sitewide_plugins", []));
+            $activePluginsToGetInactive = array_merge($activePluginsToGetInactive, $networkActivePlugins);
+        }
+
+ 
+        $output = $this->activePlugins($allAvailablePlugins, $activePlugins);
+        $output .= $this->inactivePlugins($allAvailablePlugins, $activePluginsToGetInactive);
+
+        return $output;
+    }
+
+
+
+
+
+    public function multiSitePlugins(): string
+    {
+        if (!$this->isMultiSite) {
+            return '';
+        }
+
+        $this->currentSection = SystemInfoParser::SECTIONS['PLUGINS_OVERVIEW']['id'];
+        $output = $this->header("Active Network Plugins (Includes this and other sites in the same network)");
+
+        $plugins       = wp_get_active_network_plugins();
+        $activePlugins = get_site_option("active_sitewide_plugins", []);
+
+        foreach ($plugins as $pluginPath) {
+            $pluginBase = plugin_basename($pluginPath);
+
+            if (!array_key_exists($pluginBase, $activePlugins)) {
+                continue;
+            }
+
+            $plugin = get_plugin_data($pluginPath);
+
+            $output .= "{$plugin["Name"]}: {$plugin["Version"]}" . PHP_EOL;
+        }
+
+        unset($plugins, $activePlugins);
+
+        return $output;
+    }
+
+
+
+
+
+    public function server(): string
+    {
+ 
+        $this->currentSection = SystemInfoParser::SECTIONS['SERVER_AND_OS']['id'];
+        $output = $this->header("Server & Operating System");
+        $output .= $this->info("Web Server:", isset($_SERVER["SERVER_SOFTWARE"]) ? Sanitize::sanitizeString($_SERVER["SERVER_SOFTWARE"]) : '');
+        $output .= $this->info("OS Architecture:", $this->siteInfo->getOSArchitecture());
+        $output .= $this->info("Server User:", $this->getPHPUser());
+
+ 
+        switch ($this->database->getLowerTablesNameSettings()) {
+            case '0':
+                $lowerTablesNameSettings = 'case-sensitive';
+                break;
+            case '1':
+            case '2':
+                $lowerTablesNameSettings = 'case-insensitive';
+                break;
+            default:
+                $lowerTablesNameSettings = 'N/A';
+        }
+
+ 
+        $this->currentSection = SystemInfoParser::SECTIONS['DATABASE_MYSQL_MARIADB']['id'];
+        $output .= $this->info("Database Type:", $this->database->getServerType());
+        $output .= $this->info("Version:", $this->database->getSqlVersion($compact = true));
+        $output .= $this->info("Full Version:", $this->database->getSqlVersion());
+        $output .= $this->info("Database Name:", $this->database->getWpdb()->dbname);
+        $output .= $this->info("Table Prefix:", $this->getTablePrefix());
+        $output .= $this->info("lower_case_table_names:", $lowerTablesNameSettings);
+        $output .= $this->getPrimaryKeyInfo();
+
+ 
+        $this->currentSection = SystemInfoParser::SECTIONS['PHP_ENVIRONMENT']['id'];
+        $output .= $this->info("PHP Version:", PHP_VERSION);
+        $output .= $this->info("PHP Architecture:", $this->siteInfo->getPhpArchitecture());
+        $output .= $this->info("PHP Safe Mode:", ($this->isSafeModeEnabled() ? "Enabled" : "Disabled"));
+        $displayErrors = ini_get("display_errors");
+        $output .= $this->info("display_errors:", ($displayErrors) ? "On ({$displayErrors})" : "N/A");
+
+        return $output;
+    }
+
+
+
+
+    public function getMySqlServerType(): string
+    {
+        return $this->database->getServerType();
+    }
+
+
+
+
+    public function getMySqlFullVersion(): string
+    {
+        return $this->database->getSqlVersion();
+    }
+
+
+
+
+    public function getMySqlVersionCompact(): string
+    {
+        return $this->database->getSqlVersion($compact = true);
+    }
+
+
+
+
+    public function getPhpVersion(): string
+    {
+        return PHP_VERSION;
+    }
+
+
+
+
+    public function getWebServerInfo(): string
+    {
+        return isset($_SERVER["SERVER_SOFTWARE"]) ? Sanitize::sanitizeString($_SERVER["SERVER_SOFTWARE"]) : '';
+    }
+
+
+
+
+
+    public function php(): string
+    {
+ 
+        $this->currentSection = SystemInfoParser::SECTIONS['PHP_LIMITS']['id'];
+        $memoryLimit = ini_get("memory_limit");
+        $output = $this->info("memory_limit:", $memoryLimit . ' (' . number_format(wp_convert_hr_to_bytes($memoryLimit)) . ' bytes)');
+        $output .= $this->info("max_execution_time:", ini_get("max_execution_time"));
+        $output .= $this->info("max_input_vars:", ini_get("max_input_vars"));
+        $output .= $this->info("upload_max_filesize:", ini_get("upload_max_filesize"));
+        $output .= $this->info("post_max_size:", ini_get("post_max_size"));
+
+        return $output;
+    }
+
+
+
+
+    public function getPHPUser(): string
+    {
+
+        $user = '';
+
+        if (extension_loaded('posix') && function_exists('posix_getpwuid')) {
+            $file = WPSTG_PLUGIN_DIR . 'Core/WPStaging.php';
+            $user = posix_getpwuid(fileowner($file));
+            return isset($user['name']) ? $user['name'] : 'can not detect PHP user name';
+        }
+
+        if (function_exists('exec') && in_array('exec', explode(',', ini_get('disable_functions')))) {
+            $user = exec('whoami');
+        }
+
+        return empty($user) ? 'can not detect PHP user name' : $user;
+    }
+
+
+
+
+
+    public function isSafeModeEnabled(): bool
+    {
+        return (
+            version_compare(PHP_VERSION, "5.4.0", '<') &&
+            // phpcs:ignore PHPCompatibility.IniDirectives.RemovedIniDirectives.safe_modeDeprecatedRemoved
+            @ini_get("safe_mode")
+        );
+    }
+
+
+
+
+
+
+    public function isSupported(string $functionName): string
+    {
+        return (function_exists($functionName)) ? "Supported" : "Not Supported";
+    }
+
+
+
+
+
+
+
+    public function isInstalled(string $name, bool $isClass = true): string
+    {
+        if ($isClass === true) {
+            return (class_exists($name)) ? "Installed" : "Not Installed";
+        } else {
+            return (extension_loaded($name)) ? "Installed" : "Not Installed";
+        }
+    }
+
+
+
+
+
+    public function phpExtensions(): string
+    {
+ 
+        $version = function_exists('curl_version') ? curl_version() : ['version' => 'Error: not available', 'ssl_version' => 'Error: not available', 'host' => 'Error: not available', 'protocols' => [], 'features' => []];
+
+        $bitfields = [
+            'CURL_VERSION_IPV6',
+            'CURL_VERSION_KERBEROS4',
+            'CURL_VERSION_SSL',
+            'CURL_VERSION_LIBZ',
+        ];
+
+        $this->currentSection = SystemInfoParser::SECTIONS['CURL_ENVIRONMENT']['id'];
+        $output = $this->header("cURL Environment");
+
+        $output .= $this->info("cURL Support:", $this->isSupported("curl_init") ? 'Yes' : 'No');
+        $output .= $this->info("cURL Version:", $version['version']);
+        $output .= $this->info("cURL Host:", $version['host']);
+        $output .= $this->info("SSL Library:", $version['ssl_version']);
+        $this->currentSection = SystemInfoParser::SECTIONS['CURL_FEATURES']['id'];
+        foreach ($bitfields as $feature) {
+            $output .= $this->info($feature . ":", (defined($feature) && $version['features'] & constant($feature) ? 'Supported' : 'Not Supported'));
+        }
+
+        $httpProtocols  = ['http', 'https', 'ftp', 'ftps', 'file', 'dict', 'gopher'];
+        $emailProtocols = ['imap', 'imaps', 'pop3', 'pop3s', 'smtp', 'smtps'];
+        $allProtocols = $version['protocols'];
+
+        $httpProtocolsFound  = array_values(array_intersect($allProtocols, $httpProtocols));
+        $emailProtocolsFound = array_values(array_intersect($allProtocols, $emailProtocols));
+
+        $otherProtocols = array_values(array_diff(
+            $allProtocols,
+            $httpProtocols,
+            $emailProtocols
+        ));
+        $this->currentSection = SystemInfoParser::SECTIONS['SUPPORTED_PROTOCOLS']['id'];
+        if (!empty($httpProtocolsFound)) {
+            $output .= $this->info('HTTP Protocols:', implode(', ', $httpProtocolsFound));
+        }
+
+        if (!empty($emailProtocolsFound)) {
+            $output .= $this->info('Email Protocols:', implode(', ', $emailProtocolsFound));
+        }
+
+        if (!empty($otherProtocols)) {
+            $output .= $this->info('Other Protocols:', implode(', ', $otherProtocols));
+        }
+
+        $this->currentSection = SystemInfoParser::SECTIONS['PHP_NETWORK_EXTENSIONS']['id'];
+        $output .= $this->info("fsockopen:", $this->isSupported("fsockopen") ? 'Supported' : 'Not Supported');
+        $output .= $this->info("SOAP Client:", $this->isInstalled("SoapClient"));
+        $output .= $this->info("Suhosin:", $this->isInstalled("suhosin", false));
+
+        return $output;
+    }
+
+
+
+
+
+    private function isSubDir(): bool
+    {
+ 
+ 
+        $siteurl = preg_replace('#^https?://#', '', rtrim(get_option('siteurl'), '/'));
+        $home    = preg_replace('#^https?://#', '', rtrim(get_option('home'), '/'));
+
+        if ($home !== $siteurl) {
+            return true;
+        }
+
+        return false;
+    }
+
+
+
+
+
+
+    private function getStagingPrefix(array $clone = []): string
+    {
+ 
+        $path = ABSPATH . $clone['directoryName'] . DIRECTORY_SEPARATOR . "wp-config.php";
+
+        if (!file_exists($path)) {
+            return 'File does not exist in: ' . $path;
+        }
+
+        if (($content = @file_get_contents($path)) === false) {
+            return 'Can\'t find staging wp-config.php';
+        } else {
+ 
+ 
+            preg_match("/table_prefix\s*=\s*'(\w*)';/", $content, $matches);
+ 
+
+            if (!empty($matches[1])) {
+                return $matches[1];
+            } else {
+                return 'No table_prefix in wp-config.php';
+            }
+        }
+    }
+
+
+
+
+
+
+    private function getStagingWpVersion(string $path): string
+    {
+
+        if ($path === self::NOT_SET_LABEL) {
+            return "Error: Cannot detect WP version";
+        }
+
+ 
+        $file = trailingslashit($path) . 'wp-includes/version.php';
+
+        if (!file_exists($file)) {
+            return "Error: Cannot detect WP version. File does not exist: $file";
+        }
+
+        $version = @file_get_contents($file);
+
+        $versionStaging = empty($version) ? 'unknown' : $version;
+
+        preg_match("/\\\$wp_version.*=.*'(.*)';/", $versionStaging, $matches);
+
+        if (empty($matches[1])) {
+            return "Error: Cannot detect WP version";
+        }
+
+        return $matches[1];
+    }
+
+
+
+
+
+
+    private function removeCredentials($key, $value)
+    {
+        if (empty($value)) {
+            return self::NOT_SET_LABEL;
+        }
+
+        if (in_array($key, Providers::SENSITIVE_OPTION_KEYS, true)) {
+            return self::REMOVED_LABEL;
+        }
+
+        if (!is_scalar($value)) {
+            return self::REMOVED_LABEL;
+        }
+
+        return $value;
+    }
+
+
+
+
+    private function getQueueInfo(): string
+    {
+        $output = '';
+
+ 
+        $queue = WPStaging::make(Queue::class);
+
+        $output .= $this->info("Backup All Actions in DB:", (string)$queue->count());
+        $output .= $this->info("Pending Actions:", (string)$queue->count(Queue::STATUS_READY));
+        $output .= $this->info("Processing Actions:", (string)$queue->count(Queue::STATUS_PROCESSING));
+        $output .= $this->info("Completed Actions:", (string)$queue->count(Queue::STATUS_COMPLETED));
+        $output .= $this->info("Failed Actions:", (string)$queue->count(Queue::STATUS_FAILED));
+
+        return $output;
+    }
+
+
+
+
+    private function getTablePrefix(): string
+    {
+        $prefix = $this->database->getPrefix();
+        $length = strlen($prefix);
+        $status = ($length > 16) ? "ERROR: Too long" : "Acceptable";
+        return $prefix . ' (Length: ' . $length . ' — ' . $status . ')';
+    }
+
+
+
+
+    private function getBackupDetails(): string
+    {
+        $backups = WPStaging::make(ListableBackupsCollection::class)->getListableBackups();
+
+        $output = $this->info("Number of Backups:", (string)count($backups));
+
+        $totalBackupSize = 0;
+        foreach ($backups as $backup) {
+            $totalBackupSize += (float)$backup->size;
+        }
+
+        $output .= $this->info("Total Backups Size:", esc_html((string)size_format($totalBackupSize, 2)));
+
+        return $output;
+    }
+
+
+
+
+
+
+
+
+    private function getOptimizerStatus($settings): string
+    {
+        if (get_option(Optimizer::OPTION_OPTIMIZER_DISABLED_AFTER_FATAL) === '1') {
+            return 'No (disabled after a plugin conflict)';
+        }
+
+        return isset($settings->optimizer) && $settings->optimizer ? 'Yes' : 'No';
+    }
+
+
+
+
+
+    protected function constantInfo(string $constantName): string
+    {
+        if (!defined($constantName)) {
+            return $this->info($constantName . ':', self::NOT_SET_LABEL);
+        }
+
+        $constantValue = constant($constantName);
+        if (is_bool($constantValue)) {
+            $constantValue = $constantValue ? 'Yes' : 'No';
+        }
+
+        return $this->info($constantName . ':', $constantValue);
+    }
+
+
+
+
+
+
+
+
+
+    protected function getSettingValue($settings, string $property, bool $format = false)
+    {
+        if (!isset($settings->$property)) {
+            return self::NOT_SET_LABEL;
+        }
+
+        return $format ? number_format($settings->$property) : $settings->$property;
+    }
+
+
+
+
+
+
+
+    protected function formatBooleanOption($option): string
+    {
+        return !empty($option) && $option === 'true' ? 'true' : 'false';
+    }
+
+
+
+
+
+
+
+    protected function sanitizeSitePasswords(array $sites): array
+    {
+        foreach ($sites as $key => $clone) {
+            if (!empty($clone['databasePassword'])) {
+                $sites[$key]['databasePassword'] = self::REMOVED_LABEL;
+            }
+
+            if (!empty($clone['adminPassword'])) {
+                $sites[$key]['adminPassword'] = self::REMOVED_LABEL;
+            }
+        }
+
+        return $sites;
+    }
+
+    private function getPrimaryKeyInfo(): string
+    {
+        $tableName           = $this->database->getPrefix() . 'options';
+        $isPrimaryKeyMissing = $this->wpOptionsInfo->isOptionTablePrimaryKeyMissing($tableName);
+        if ($isPrimaryKeyMissing) {
+            return $this->info("Primary Key in {$tableName} :", self::NOT_SET_LABEL);
+        }
+
+        $isPrimaryKeyIsOptionName = $this->wpOptionsInfo->isPrimaryKeyIsOptionName($tableName);
+        if ($isPrimaryKeyIsOptionName) {
+            return $this->info("Primary Key in {$tableName}:", 'option_name');
+        }
+
+        return $this->info("Primary Key in {$tableName}:", 'option_id');
+    }
+
+    public function setEncodeProLicense(bool $isEncodeProLicense = false)
+    {
+        $this->isEncodeProLicense = $isEncodeProLicense;
+    }
+
+    public function getEncodeProLicense(): bool
+    {
+        return $this->isEncodeProLicense;
+    }
+
+    private function getLicenseKey()
+    {
+        $licenseKey = get_option('wpstg_license_key');
+        if (class_exists(Licensing::class)) {
+            $licenseKey = WPStaging::make(Licensing::class)->getLicenseKey();
+        }
+
+        if (empty($licenseKey) || !$this->getEncodeProLicense()) {
+            return $licenseKey;
+        }
+
+ 
+        $dataEncryption = WPStaging::make(DataEncryption::class);
+ 
+        if (!$dataEncryption->isPhpSecLibAvailable()) {
+            return $licenseKey;
+        }
+
+        $publicKey = $dataEncryption->getPublicKey();
+        if (empty($publicKey)) {
+            return $licenseKey;
+        }
+
+        return $dataEncryption->rsaEncrypt($licenseKey, $publicKey);
+    }
+
+
+
+
+
+
+    protected function formatStorageSettings(string $storageId, string $title): string
+    {
+        $output  = PHP_EOL . "-- " . $title . PHP_EOL;
+        $storage = WPStaging::make(Providers::class)->makeStorageFor($storageId);
+
+        $settings = $storage === null ? [] : (array)$storage->getOptions();
+        if (!empty($settings)) {
+ 
+            if ($this->enableStructuredOutput) {
+                $this->info($title, '');
+            }
+
+            foreach ($settings as $key => $value) {
+                $output .= $this->info($key, $this->removeCredentials($key, $value));
+            }
+        }
+
+        return $output;
+    }
+
+
+
+
+    protected function muPlugins(): string
+    {
+        $this->currentSection = SystemInfoParser::SECTIONS['PLUGINS_OVERVIEW']['id'];
+        $output    = $this->header("Must-Use Plugins");
+        $muPlugins = get_mu_plugins();
+        foreach ($muPlugins as $pluginData) {
+            $output .= $this->info($pluginData["Name"] . ":", $pluginData["Version"]);
+        }
+
+        return $output;
+    }
+
+
+
+
+    protected function dropIns(): string
+    {
+        $this->currentSection = SystemInfoParser::SECTIONS['PLUGINS_OVERVIEW']['id'];
+        $output  = $this->header("Drop-Ins");
+        $dropIns = get_dropins();
+        foreach ($dropIns as $dropIn) {
+            $output .= $this->info($dropIn["Name"] . ":", $dropIn["Version"]);
+        }
+
+        return $output;
+    }
+}

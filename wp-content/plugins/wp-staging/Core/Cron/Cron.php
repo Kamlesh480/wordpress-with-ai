@@ -1,0 +1,314 @@
+<?php
+
+
+
+
+
+namespace WPStaging\Core\Cron;
+
+use WPStaging\Core\WPStaging;
+
+ 
+if (!defined("WPINC")) {
+    die;
+}
+
+class Cron
+{
+ 
+    const HOURLY          = 'wpstg_hourly';
+
+ 
+    const SIX_HOURS       = 'wpstg_six_hours';
+
+ 
+    const TWELVE_HOURS    = 'wpstg_twelve_hours';
+
+ 
+    const DAILY           = 'wpstg_daily';
+
+ 
+    const EVERY_TWO_DAYS  = 'wpstg_every_two_days';
+
+ 
+    const WEEKLY          = 'wpstg_weekly';
+
+ 
+    const EVERY_TWO_WEEKS = 'wpstg_every_two_weeks';
+
+ 
+    const MONTHLY         = 'wpstg_montly'; 
+
+ 
+    const BASIC_DAILY     = 'wpstg_basic_daily';
+
+ 
+    const ACTION_DAILY_EVENT = 'wpstg_daily_event';
+
+ 
+    const ACTION_WEEKLY_EVENT = 'wpstg_weekly_event';
+
+ 
+    const ACTION_CREATE_CRON_BACKUP = 'wpstg_create_cron_backup';
+
+    public function __construct()
+    {
+        add_filter('cron_schedules', [$this, 'addIntervals']);
+    }
+
+
+
+
+
+
+    public function addIntervals($schedules)
+    {
+        $schedules = $this->addBasicIntervals($schedules);
+
+        if (!WPStaging::isPro()) {
+            return $schedules;
+        }
+
+ 
+        $schedules['weekly'] = [
+            'interval' => WEEK_IN_SECONDS,
+            'display'  => __('Once Weekly', 'wp-staging'),
+        ];
+
+        $schedules['monthly'] = [
+            'interval' => MONTH_IN_SECONDS,
+            'display'  => __('Once a month', 'wp-staging'),
+        ];
+
+        $schedules[static::HOURLY] = [
+            'interval' => HOUR_IN_SECONDS,
+            'display'  => __('WP Staging events that happens hourly', 'wp-staging'),
+        ];
+
+        $schedules[static::SIX_HOURS] = [
+            'interval' => HOUR_IN_SECONDS * 6,
+            'display'  => __('WP Staging events that happens every six hours', 'wp-staging'),
+        ];
+
+        $schedules[static::TWELVE_HOURS] = [
+            'interval' => HOUR_IN_SECONDS * 12,
+            'display'  => __('WP Staging events that happens every twelve hours', 'wp-staging'),
+        ];
+
+        $schedules[static::DAILY] = [
+            'interval' => DAY_IN_SECONDS,
+            'display'  => __('WP Staging events that happens daily', 'wp-staging'),
+        ];
+
+        $schedules[static::EVERY_TWO_DAYS] = [
+            'interval' => DAY_IN_SECONDS * 2,
+            'display'  => __('WP Staging events that happens every 2 days', 'wp-staging'),
+        ];
+
+        $schedules[static::WEEKLY] = [
+            'interval' => WEEK_IN_SECONDS,
+            'display'  => __('WP Staging events that happens weekly', 'wp-staging'),
+        ];
+
+ 
+ 
+        for ($day = 1; $day <= 7; $day++) {
+            $dayName = $this->getDayName($day);
+            $schedules[static::WEEKLY . '_' . $day] = [
+                'interval' => WEEK_IN_SECONDS,
+                'display'  => sprintf(
+                    __('WP Staging events that happen weekly - %s', 'wp-staging'),
+                    $dayName
+                ),
+            ];
+        }
+
+        $schedules[static::EVERY_TWO_WEEKS] = [
+            'interval' => WEEK_IN_SECONDS * 2,
+            'display'  => __('WP Staging events that happens every two weeks', 'wp-staging'),
+        ];
+
+        $schedules[static::MONTHLY] = [
+            'interval' => MONTH_IN_SECONDS,
+            'display'  => __('WP Staging events that happens every month', 'wp-staging'),
+        ];
+
+        return $schedules;
+    }
+
+    public function addBasicIntervals($schedules)
+    {
+        $schedules[static::BASIC_DAILY] = [
+            'interval' => DAY_IN_SECONDS,
+            'display'  => __('WP Staging events that happens daily', 'wp-staging'),
+        ];
+
+        return $schedules;
+    }
+
+
+
+
+
+
+
+
+    public static function isRecurrenceRegistered(string $recurrence): bool
+    {
+        if ($recurrence === '') {
+            return false;
+        }
+
+        return isset(wp_get_schedules()[$recurrence]);
+    }
+
+
+
+
+
+
+
+    public static function getDayName(int $dayNumber): string
+    {
+        $days = [
+            1 => __('Monday', 'wp-staging'),
+            2 => __('Tuesday', 'wp-staging'),
+            3 => __('Wednesday', 'wp-staging'),
+            4 => __('Thursday', 'wp-staging'),
+            5 => __('Friday', 'wp-staging'),
+            6 => __('Saturday', 'wp-staging'),
+            7 => __('Sunday', 'wp-staging'),
+        ];
+
+        return isset($days[$dayNumber]) ? $days[$dayNumber] : '';
+    }
+
+
+
+
+
+
+
+    public static function extractDayFromSchedule(string $cronInterval)
+    {
+ 
+        if (preg_match('/_(\d+)$/', $cronInterval, $matches)) {
+            $day = (int)$matches[1];
+ 
+            if ($day >= 1 && $day <= 7) {
+                return $day;
+            }
+        }
+
+        return null;
+    }
+
+
+
+
+
+    public static function getCronDisplayName($cronInterval)
+    {
+ 
+        $day = self::extractDayFromSchedule($cronInterval);
+        if ($day !== null) {
+ 
+            $baseSchedule = preg_replace('/_\d+$/', '', $cronInterval);
+
+            if ($baseSchedule === static::WEEKLY) {
+                return sprintf(
+                    __('Weekly - %s', 'wp-staging'),
+                    self::getDayName($day)
+                );
+            }
+        }
+
+ 
+        switch ($cronInterval) {
+            case static::HOURLY:
+                return __('Hourly', 'wp-staging');
+            case static::SIX_HOURS:
+                return __('Every 6 Hours', 'wp-staging');
+            case static::TWELVE_HOURS:
+                return __('Every 12 Hours', 'wp-staging');
+            case static::DAILY:
+                return __('Daily', 'wp-staging');
+            case static::EVERY_TWO_DAYS:
+                return __('Every 2 Days', 'wp-staging');
+            case static::WEEKLY:
+                return __('Weekly', 'wp-staging'); 
+            case static::EVERY_TWO_WEEKS:
+                return __('Every 2 weeks', 'wp-staging');
+            case static::MONTHLY:
+                return __('Monthly', 'wp-staging');
+            case static::BASIC_DAILY:
+                return __('Daily', 'wp-staging');
+        }
+
+        return $cronInterval;
+    }
+
+
+
+
+
+
+
+
+
+
+    public function getFirstRunTimestamp(string $recurrence): int
+    {
+        switch ($recurrence) {
+            case self::HOURLY:
+                $delay = HOUR_IN_SECONDS;
+                break;
+            case self::SIX_HOURS:
+                $delay = 6 * HOUR_IN_SECONDS;
+                break;
+            case self::TWELVE_HOURS:
+                $delay = 12 * HOUR_IN_SECONDS;
+                break;
+            case self::DAILY:
+            case self::BASIC_DAILY:
+            case 'daily':
+                $delay = DAY_IN_SECONDS;
+                break;
+            case self::WEEKLY:
+            case 'weekly':
+                $delay = WEEK_IN_SECONDS;
+                break;
+            case self::EVERY_TWO_DAYS:
+                $delay = 2 * DAY_IN_SECONDS;
+                break;
+            case self::EVERY_TWO_WEEKS:
+                $delay = 2 * WEEK_IN_SECONDS;
+                break;
+            case self::MONTHLY:
+            case 'monthly':
+                $delay = MONTH_IN_SECONDS;
+                break;
+            default:
+                $delay = HOUR_IN_SECONDS;
+                break;
+        }
+
+        return time() + $delay;
+    }
+
+
+
+
+    public function scheduleEvent()
+    {
+        if (!wp_next_scheduled(self::ACTION_WEEKLY_EVENT)) {
+            wp_schedule_event($this->getFirstRunTimestamp('weekly'), 'weekly', self::ACTION_WEEKLY_EVENT);
+        }
+
+        if (!wp_next_scheduled(self::ACTION_DAILY_EVENT)) {
+            wp_schedule_event($this->getFirstRunTimestamp('daily'), 'daily', self::ACTION_DAILY_EVENT);
+        }
+
+        return true;
+    }
+}

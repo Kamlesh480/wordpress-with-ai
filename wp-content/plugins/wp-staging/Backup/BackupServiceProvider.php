@@ -1,0 +1,193 @@
+<?php
+
+namespace WPStaging\Backup;
+
+use WPStaging\Backup\Ajax\Backup;
+use WPStaging\Backup\Ajax\Delete;
+use WPStaging\Backup\Ajax\Edit;
+use WPStaging\Backup\Ajax\FileInfo;
+use WPStaging\Backup\Ajax\Parts;
+use WPStaging\Backup\Ajax\BackupSizeCalculator;
+use WPStaging\Backup\Ajax\Restore;
+use WPStaging\Backup\Ajax\ScheduleList;
+use WPStaging\Backup\Ajax\ScheduleLogs;
+use WPStaging\Backup\Ajax\Upload;
+use WPStaging\Backup\Ajax\Backup\PrepareBackup;
+use WPStaging\Backup\Ajax\Backup\BackupBeforeUpdateHandler;
+use WPStaging\Backup\Ajax\BackupDownloader;
+use WPStaging\Backup\Ajax\Restore\PrepareRestore;
+use WPStaging\Backup\Ajax\Restore\ReadBackupMetadata;
+use WPStaging\Backup\Request\Logs;
+use WPStaging\Backup\Service\BackupAssets;
+use WPStaging\Backup\Service\BackupsFinder;
+use WPStaging\Backup\BeforeUpdateRowStatus;
+use WPStaging\Backup\UpdateProtectionPausedNotice;
+use WPStaging\Backup\Service\BeforeUpdateBackupRequest;
+use WPStaging\Backup\Service\ScheduledBackupReport;
+use WPStaging\Backup\Service\StagingUpdateBackupClient;
+use WPStaging\Backup\Service\UpdateProtectionHealth;
+use WPStaging\Backup\Task\Tasks\JobBackup\FinishBackupTask;
+use WPStaging\Backup\Task\Tasks\JobRestore\RenameDatabaseTask;
+use WPStaging\Backup\Service\Database\Importer\Insert\ExtendedInserterWithoutTransaction;
+use WPStaging\Backup\Service\Database\Importer\Insert\QueryInserter;
+use WPStaging\Backup\Ajax\BackupSpeedIndex;
+use WPStaging\Backup\Ajax\Explore;
+use WPStaging\Core\Cron\Cron;
+use WPStaging\Framework\Adapter\Directory;
+use WPStaging\Framework\Adapter\DirectoryInterface;
+use WPStaging\Framework\DI\FeatureServiceProvider;
+use WPStaging\Framework\Filesystem\Filesystem;
+use WPStaging\Framework\Filesystem\FilesystemScanner;
+use WPStaging\Framework\Filesystem\PathIdentifier;
+use WPStaging\Framework\Job\Task\AbstractTask;
+use WPStaging\Framework\Queue\FileSeekableQueue;
+use WPStaging\Framework\Queue\SeekableQueueInterface;
+use WPStaging\Framework\ThirdParty\LiteSpeedCache;
+use WPStaging\Framework\BackgroundProcessing\Job\PrepareJob;
+use WPStaging\Framework\Facades\Hooks;
+use WPStaging\Framework\Security\Otp\OtpSender;
+
+class BackupServiceProvider extends FeatureServiceProvider
+{
+ 
+    const ACTION_BACKUP_ENQUEUE_SCRIPTS = 'wpstg.backup.enqueue_scripts';
+
+    public function createBackupsDirectory()
+    {
+        $backupsDirectory = $this->container->make(BackupsFinder::class)->getBackupsDirectory();
+        $this->container->make(Filesystem::class)->mkdir($backupsDirectory, true);
+    }
+
+    protected function registerClasses()
+    {
+        $this->container->bind(SeekableQueueInterface::class, function () {
+            return $this->container->make(FileSeekableQueue::class);
+        });
+
+        $this->container->when(AbstractTask::class)
+                        ->needs(SeekableQueueInterface::class)
+                        ->give(FileSeekableQueue::class);
+
+        $this->container->when(PathIdentifier::class)
+                        ->needs(DirectoryInterface::class)
+                        ->give(Directory::class);
+
+        $this->container->when(FilesystemScanner::class)
+                        ->needs(SeekableQueueInterface::class)
+                        ->give(FileSeekableQueue::class);
+
+        $this->hookDatabaseImporterQueryInserter();
+    }
+
+    protected function addHooks()
+    {
+        $this->enqueueAjaxListeners();
+
+        $this->enqueueBackupScripts();
+
+        add_action(Cron::ACTION_WEEKLY_EVENT, [$this, 'createBackupsDirectory'], 25, 0);
+
+        add_action('wp_login', $this->container->callback(AfterRestore::class, 'loginAfterRestore'), 10, 0);
+        add_action(RenameDatabaseTask::FILTER_BACKUP_IMPORT_DATABASE_POST_DATABASE_RESTORE_ACTIONS, $this->container->callback(AfterRestore::class, 'queueElementorCssCacheClear'), 10, 1);
+
+        Hooks::registerInternalHook(PrepareJob::ACTION_JOB_FAILURE, $this->container->callback(BackupScheduler::class, 'onBackgroundJobFailure'));
+    }
+
+    protected function enqueueAjaxListeners()
+    {
+        add_action('wp_ajax_wpstg--backup-before-update--plugin-versions', $this->container->callback(BackupBeforeUpdateHandler::class, 'getPluginUpdateVersionInfo')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backup-before-update--intro-seen', $this->container->callback(BackupBeforeUpdateHandler::class, 'markIntroSeen')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backup-before-update--set-enabled', $this->container->callback(BackupBeforeUpdateHandler::class, 'setFeatureEnabled')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backup-before-update--resume', $this->container->callback(BackupBeforeUpdateHandler::class, 'resumeProtection')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backup-before-update--reusable-backup', $this->container->callback(BackupBeforeUpdateHandler::class, 'getReusableBackup')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backup-before-update--start', $this->container->callback(BackupBeforeUpdateHandler::class, 'startBackup')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backup-before-update--progress', $this->container->callback(BackupBeforeUpdateHandler::class, 'getBackupProgress')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backup-before-update--cancel', $this->container->callback(BackupBeforeUpdateHandler::class, 'cancelBackup')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action(StagingUpdateBackupClient::ACTION_MONITOR, $this->container->callback(StagingUpdateBackupClient::class, 'monitor'), 10, 1);
+
+ 
+ 
+        add_action(FinishBackupTask::ACTION_BACKUP_CREATED, $this->container->callback(BeforeUpdateBackupRequest::class, 'markCompleted'));
+
+ 
+ 
+        add_action(FinishBackupTask::ACTION_BACKUP_CREATED, $this->container->callback(UpdateProtectionHealth::class, 'recordSuccess'));
+        add_action(PrepareJob::ACTION_JOB_FAILURE, $this->container->callback(BeforeUpdateBackupRequest::class, 'onBackgroundJobFailure'));
+
+        add_action(FinishBackupTask::ACTION_BACKUP_CREATED, $this->container->callback(ScheduledBackupReport::class, 'sendReports'));
+
+        add_action('load-plugins.php', $this->container->callback(BeforeUpdateRowStatus::class, 'registerRowMessages'));
+        add_action('admin_notices', $this->container->callback(UpdateProtectionPausedNotice::class, 'render'));
+        add_action('wp_ajax_wpstg--backups--prepare-backup', $this->container->callback(PrepareBackup::class, 'ajaxPrepare')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backups--create', $this->container->callback(Backup::class, 'render')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+
+        add_action('wp_ajax_wpstg--backups--prepare-restore', $this->container->callback(PrepareRestore::class, 'ajaxPrepare')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backups--restore', $this->container->callback(Restore::class, 'render')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_nopriv_' . LiteSpeedCache::AJAX_ACTION_SERVER_PURGE, $this->container->callback(LiteSpeedCache::class, 'answerServerPurgeRequest')); // phpcs:ignore WPStaging.Security.AuthorizationChecked -- authorized by the single-use token purgeAfterRestore() issues
+        add_action('wp_ajax_' . LiteSpeedCache::AJAX_ACTION_SERVER_PURGE, $this->container->callback(LiteSpeedCache::class, 'answerServerPurgeRequest')); // phpcs:ignore WPStaging.Security.AuthorizationChecked -- authorized by the single-use token purgeAfterRestore() issues
+
+        add_action('wp_ajax_wpstg--backups--read-backup-metadata', $this->container->callback(ReadBackupMetadata::class, 'ajaxPrepare')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backups--delete', $this->container->callback(Delete::class, 'render')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backups--edit', $this->container->callback(Edit::class, 'render')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backups--parts', $this->container->callback(Parts::class, 'render')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backups--restore--file-info', $this->container->callback(FileInfo::class, 'render')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backups--prepare-upload', $this->container->callback(Upload::class, 'ajaxPrepareUpload')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backups--restore--file-upload', $this->container->callback(Upload::class, 'render')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backups--prepare-url-upload', $this->container->callback(BackupDownloader::class, 'ajaxPrepareUpload')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backups--url-file-upload', $this->container->callback(BackupDownloader::class, 'ajaxDownloadBackupFromRemoteServer'), 10, 0); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backups--uploads-delete-unfinished', $this->container->callback(Upload::class, 'ajaxDeleteIncompleteUploads')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backups--explore-list', $this->container->callback(Explore::class, 'listFiles')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backups--explore-tree', $this->container->callback(Explore::class, 'listTree')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backups--explore-browse', $this->container->callback(Explore::class, 'browse')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backups--explore-select-directory', $this->container->callback(Explore::class, 'listDirectoryFiles')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg_calculate_backup_speed_index', $this->container->callback(BackupSpeedIndex::class, 'ajaxMaybeShowModal')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+
+ 
+        add_action('wp_ajax_wpstg--send--otp', $this->container->callback(OtpSender::class, 'ajaxSendOtp')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+
+ 
+        add_action('wp_ajax_nopriv_wpstg--backups--restore', $this->container->callback(Restore::class, 'render')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+
+        add_action(Cron::ACTION_CREATE_CRON_BACKUP, $this->container->callback(BackupScheduler::class, 'createCronBackup'), 10, 1);
+ 
+        add_action('wpstg.backup.schedules.retry_email_report', $this->container->callback(BackupScheduler::class, 'retryEmailReport'), 10, 5);
+        add_action('cron_reschedule_event_error', $this->container->callback(BackupScheduler::class, 'reportCronSaveFailure'), 10, 2);
+        add_action('cron_unschedule_event_error', $this->container->callback(BackupScheduler::class, 'reportCronSaveFailure'), 10, 2);
+        add_action('wp_ajax_wpstg--backups-dismiss-schedule', $this->container->callback(BackupScheduler::class, 'dismissSchedule'), 10, 1); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backups-pause-schedule', $this->container->callback(BackupScheduler::class, 'pauseSchedule'), 10, 1); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backups-resume-schedule', $this->container->callback(BackupScheduler::class, 'resumeSchedule'), 10, 1); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backups-run-schedule-now', $this->container->callback(BackupScheduler::class, 'runScheduleNow'), 10, 1); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wpstg_job_failed', function ($jobData) {
+            if (!is_array($jobData) || empty($jobData['queueId'])) {
+                return;
+            }
+
+ 
+            if (empty(get_transient(BackupScheduler::TRANSIENT_SCHEDULE_JOB_PREFIX . $jobData['queueId']))) {
+                return;
+            }
+
+            $this->container->make(BackupScheduler::class)->handleJobFailed($jobData);
+        }, 10, 1);
+        add_action('wp_ajax_wpstg--backups-fetch-schedule-section', $this->container->callback(ScheduleList::class, 'ajaxGetBackupScheduleSectionData'), 10, 1); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backups-schedule-logs', $this->container->callback(ScheduleLogs::class, 'ajaxGetScheduleLogs'), 10, 1); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wp_ajax_wpstg--backups-get-reconnect-url', $this->container->callback(ScheduleList::class, 'ajaxGetReconnectUrl')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+        add_action('wpstg_storage_reconnected', $this->container->callback(BackupScheduler::class, 'clearReconnectStorageKeyForProvider')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+
+        add_action("admin_post_wpstg--backups--logs", $this->container->callback(Logs::class, 'download')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+
+ 
+        add_action(Cron::ACTION_DAILY_EVENT, $this->container->callback(BackupScheduler::class, 'reCreateCron'), 10, 0);
+        add_action('wp_ajax_wpstg--backups--calculate-backup-size', $this->container->callback(BackupSizeCalculator::class, 'ajaxCalculateBackupPartsSize')); // phpcs:ignore WPStaging.Security.AuthorizationChecked
+    }
+
+    protected function hookDatabaseImporterQueryInserter()
+    {
+        $this->container->bind(QueryInserter::class, ExtendedInserterWithoutTransaction::class);
+    }
+
+    protected function enqueueBackupScripts()
+    {
+        add_action(self::ACTION_BACKUP_ENQUEUE_SCRIPTS, $this->container->callback(BackupAssets::class, 'register')); // phpcs:ignore
+    }
+}

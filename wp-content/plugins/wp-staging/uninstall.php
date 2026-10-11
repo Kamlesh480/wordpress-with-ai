@@ -1,0 +1,855 @@
+<?php
+
+
+if (!defined('WP_UNINSTALL_PLUGIN')) {
+    exit;
+}
+
+/**
+ * Handles plugin uninstallation and cleanup of WP Staging data
+ *
+ * This class manages the complete uninstallation process including:
+ * - Detecting single site vs multisite/network uninstall scenarios
+ * - Distinguishing between Basic and Pro version uninstallation
+ * - Preserving data when both versions are installed
+ * - Cleaning up options, transients, and cron events
+ * - Removing plugin directories (except those containing backups)
+ * - Respecting user's "Remove Data on Uninstall" setting
+ *
+ * The class runs in standalone context without the plugin's autoloader,
+ * so it must be self-contained with no external dependencies.
+ *
+ * Note: Avoids using class constants to prevent loading the whole plugin.
+ * @package     WPSTG
+ * @subpackage  Uninstall
+ * @copyright   Copyright (c) 2015, René Hermenau
+ * @license     http://opensource.org/licenses/gpl-2.0.php GNU Public License
+ * @since       0.9.0
+ */
+class Uninstall
+{
+
+
+
+
+    private $preserveOptions = [
+        'wpstg_existing_clones',
+        'wpstg_existing_clones_beta',
+        'wpstg_staging_sites',
+        'wpstg_connection',
+    ];
+
+    public function __construct()
+    {
+        if (!is_multisite()) {
+            $this->runForSingleSite(); 
+            return;
+        }
+
+        if ($this->isNetworkUninstall()) {
+            $this->runForNetwork(); 
+        } else {
+            $this->runForSingleSite(); 
+        }
+    }
+
+
+
+
+    private function runForNetwork()
+    {
+        $siteIds = get_sites(['fields' => 'ids', 'number' => 0]);
+        foreach ($siteIds as $siteId) {
+            switch_to_blog($siteId);
+            $this->runForSingleSite();
+            restore_current_blog();
+        }
+
+        $this->deleteNetworkOptions();
+    }
+
+
+
+
+    private function runForSingleSite()
+    {
+        $settings = $this->getSettings();
+
+        if (empty($settings['unInstallOnDelete']) || $settings['unInstallOnDelete'] !== '1') {
+            return;
+        }
+
+ 
+ 
+        if ($this->isProInstalled() && $this->isUninstallingBasic()) {
+            return;
+        }
+
+ 
+        if ($this->isBasicInstalled() && $this->isUninstallingPro()) {
+            $this->deleteRemoteSyncAuthenticationActivityTransients();
+            $this->deleteOptions($this->getProOptions());
+            $this->deleteProStorageSettings();
+            return;
+        }
+
+ 
+        if (!$this->isBasicInstalled() && $this->isUninstallingPro()) {
+            $this->performCompleteCleanup(true);
+            return;
+        }
+
+ 
+        if (!$this->isProInstalled() && $this->isUninstallingBasic()) {
+            $this->performCompleteCleanup(false);
+        }
+    }
+
+
+
+
+
+    private function performCompleteCleanup(bool $isPro)
+    {
+        $this->deleteOptions($this->getBasicOptions());
+        $this->deleteCorruptedStagingSitesBackupOptions();
+        if ($isPro) {
+            $this->deleteOptions($this->getProOptions());
+        }
+
+        $this->deleteUserMeta($this->getBasicUserMeta());
+        $this->dropWpStagingSettingsTable();
+        $this->dropWpStagingTransferSessionsTable();
+        $this->deleteOptionsByPrefix('wpstg_transfer_lock_');
+        $this->deleteTransients();
+        $this->cleanupEmptyPreserveOptions();
+        $this->clearCronEvents();
+        $this->cleanupWpStagingDirectories();
+    }
+
+
+
+
+
+
+
+    private function deleteProStorageSettings()
+    {
+        global $wpdb;
+
+        if (!($wpdb instanceof \wpdb)) {
+            return;
+        }
+
+        $tableName = str_replace('`', '', $wpdb->prefix . 'wpstg_settings');
+
+        $exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($tableName)));
+        if ($exists !== $tableName) {
+            return;
+        }
+
+        $wpdb->query($wpdb->prepare(
+            "DELETE FROM `{$tableName}` WHERE setting_key = %s OR setting_key LIKE %s",
+            'sftp_profiles',
+            $wpdb->esc_like('sftp_profile_') . '%'
+        ));
+    }
+
+
+
+
+    private function dropWpStagingSettingsTable()
+    {
+        global $wpdb;
+
+        if (!($wpdb instanceof \wpdb)) {
+            return;
+        }
+
+        $tableName = str_replace('`', '', $wpdb->prefix . 'wpstg_settings');
+        $wpdb->query("DROP TABLE IF EXISTS `{$tableName}`");
+    }
+
+
+
+
+
+
+
+    private function dropWpStagingTransferSessionsTable()
+    {
+        global $wpdb;
+
+        if (!($wpdb instanceof \wpdb)) {
+            return;
+        }
+
+        $tableName = str_replace('`', '', $wpdb->base_prefix . 'wpstg_transfer_sessions');
+        $wpdb->query("DROP TABLE IF EXISTS `{$tableName}`");
+    }
+
+
+
+
+    private function isNetworkUninstall(): bool
+    {
+        return (is_multisite() && is_network_admin());
+    }
+
+
+
+
+    private function isUninstallingBasic(): bool
+    {
+        $pluginDirs = ['wp-staging', 'wp-staging-1'];
+        return $this->isUninstallingPlugin($pluginDirs);
+    }
+
+
+
+
+    private function isUninstallingPro(): bool
+    {
+        $pluginDirs = ['wp-staging-pro', 'wp-staging-pro-1'];
+        return $this->isUninstallingPlugin($pluginDirs);
+    }
+
+
+
+
+
+    private function isUninstallingPlugin(array $pluginDirs): bool
+    {
+        return in_array(basename(__DIR__), $pluginDirs);
+    }
+
+
+
+
+    private function isProInstalled(): bool
+    {
+ 
+        if ($this->isProInstalledByHeaders()) {
+            return true;
+        }
+
+ 
+        $plugins = [
+            'wp-staging-pro-1/wp-staging-pro.php',
+            'wp-staging-pro/wp-staging-pro.php',
+        ];
+        foreach ($plugins as $plugin) {
+            if ($this->isPluginInstalled($plugin)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
+
+
+    private function isBasicInstalled(): bool
+    {
+ 
+        if ($this->isBasicInstalledByHeaders()) {
+            return true;
+        }
+
+ 
+        $plugins = [
+            'wp-staging-1/wp-staging.php',
+            'wp-staging/wp-staging.php',
+        ];
+        foreach ($plugins as $plugin) {
+            if ($this->isPluginInstalled($plugin)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
+
+
+
+    private function isPluginInstalled($pluginName): bool
+    {
+        return file_exists( WP_PLUGIN_DIR . '/' . $pluginName );
+    }
+
+
+
+
+
+    private function findPluginByIdentifiers(array $identifiers): bool
+    {
+        if (!function_exists('get_plugins')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+
+        $plugins        = get_plugins();
+        $searchCriteria = array_change_key_case($identifiers, CASE_LOWER);
+
+        foreach ($plugins as $file => $data) {
+            $name       = strtolower($data['Name'] ?? '');
+            $slug       = strtolower(dirname($file));
+            $mainFile   = strtolower(basename($file, '.php'));
+
+            if (isset($searchCriteria['file']) && strtolower($searchCriteria['file']) === strtolower($file)) {
+                return true;
+            }
+
+            if (isset($searchCriteria['slug']) && ($slug === $searchCriteria['slug'] || $mainFile === $searchCriteria['slug'])) {
+                return true;
+            }
+
+            if (isset($searchCriteria['name']) && $name === strtolower($searchCriteria['name'])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
+
+
+    private function isBasicInstalledByHeaders(): bool
+    {
+        return $this->findPluginByIdentifiers([
+            'slug' => 'wp-staging',
+            'name' => 'WP Staging',
+            'file' => 'wp-staging/wp-staging.php',
+        ]);
+    }
+
+
+
+
+    private function isProInstalledByHeaders(): bool
+    {
+        return $this->findPluginByIdentifiers([
+            'slug' => 'wp-staging-pro',
+            'name' => 'WP Staging Pro',
+            'file' => 'wp-staging-pro/wp-staging-pro.php',
+        ]);
+    }
+
+
+
+
+    private function getSettings(): array
+    {
+        return (array)get_option('wpstg_settings', []);
+    }
+
+
+
+
+    private function getBasicOptions(): array
+    {
+        return [
+            'wpstg_settings',
+            'wpstg_backup_before_update_mode',
+            'wpstg_backup_before_update_intro_seen',
+            'wpstg_backup_before_update_request',
+            'wpstg_update_protection_health',
+            'wpstg_clone_settings',
+            'wpstg_free_install_date',
+            'wpstg_installDate',
+            'wpstg_version',
+            'wpstg_version_upgraded_from',
+            'wpstg_free_upgrade_date',
+            'wpstg_rating',
+            'wpstg_rating_snooze_count',
+            'wpstg_unique_identifier',
+            'wpstg_is_staging_site',
+            'wpstg_resave_permalinks_executed',
+            'wpstg_rmpermalinks_executed',
+            'wpstg_connection',
+            'wpstg_staging_sites',
+            'wpstg_staging_sites_backup',
+            'wpstg_existing_clones',
+            'wpstg_existing_clones_beta',
+            'wpstg_tmp_data',
+            'wpstg_execute',
+            'wpstg_emails_disabled',
+            'wpstg_woo_scheduler_disabled',
+            'wpstg_optimizer_disabled_after_fatal',
+            'wpstg_clone_excluded_files_list',
+ 
+            'wpstg_clone_excluded_gd_files_list',
+            'wpstg_clone_excluded_hosting_files',
+            'wpstg_freemius_notice',
+            'wpstg_queue_table_structure_version',
+            'wpstg_settings_table_version',
+            'wpstg_transfer_sessions_table_version',
+            'wpstg_backup_directory_security_check',
+            'wpstg_backup_directory_notice_dismissed',
+            'wpstg_q_feature_detection_ajax_available',
+            'wpstg_analytics_has_consent',
+            'wpstg_analytics_modal_dismissed',
+            'wpstg_analytics_notice_dismissed',
+            'wpstg_analytics_consent_remind_me',
+            'wpstg_experiments',
+            'wpstg_first_install',
+            'wpstg_onboarding_completed',
+            'wpstg_onboarding_exposure',
+            'wpstg_onboarding_journey',
+            'wpstg_onboarding_queued_backup',
+            'wpstg_onboarding_restarted',
+            'wpstg_default_color_mode',
+            'wpstg_default_os_color_mode',
+            'wpstg_last_backup_info',
+            'wpstg_backups_retention',
+            'wpstg_otps',
+            'wpstg_access_token',
+            'wpstg_disabled_notice',
+            'wpstg_send_email_as_html',
+            'wpstg_cli_notice_hidden_forever',
+            'wpstg_cli_dock_cta_shown',
+            'wpstg_cli_notice_dismissed_until',
+            'wpstg_backup_notice_is_closed',
+            'wpstg_backup_notice_remind_me',
+            'wpstg_completed_upgrades',
+            'wpstg_next_gen_engine_notice',
+            'wpstg_staging_engine_preference',
+            'wpstg_staging_engine_preferences',
+            'wpstg_clear_elementor_css_cache',
+        ];
+    }
+
+
+
+
+
+
+    private function getBasicUserMeta(): array
+    {
+        return [
+            'wpstg_user_general_pro_card_snoozed_until',
+        ];
+    }
+
+
+
+
+    private function getProOptions(): array
+    {
+        return [
+            'wpstgpro_version',
+            'wpstgpro_version_upgraded_from',
+            'wpstgpro_install_date',
+            'wpstgpro_upgrade_date',
+            'wpstg_license_key',
+            'wpstg_license_status',
+            'wpstg_pro_latest_version',
+            'wpstg_available_wp_versions',
+            'wpstg_googledrive', 
+            'wpstg_google-drive',
+            'wpstg_dropbox',
+            'wpstg_one-drive',
+            'wpstg_pcloud',
+            'wpstg_amazons3', 
+            'wpstg_amazon-s3',
+            'wpstg_sftp',
+            'wpstg_digitalocean', 
+            'wpstg_digitalocean-spaces',
+            'wpstg_wasabi', 
+            'wpstg_wasabi-s3',
+            'wpstg_generic-s3',
+            'wpstg_backup_schedules',
+            'wpstg_backup_schedules_send_error_report',
+            'wpstg_backup_schedules_send_warning_report',
+            'wpstg_backup_schedules_send_general_report',
+            'wpstg_backup_schedules_report_email',
+            'wpstg_backup_schedules_send_slack_error_report',
+            'wpstg_backup_schedules_report_slack_webhook',
+            'wpstg_current_site_login_links',
+            'wpstg_remote_sync_api_token',
+            'wpstg_remote_sync_password',
+            'wpstg_remote_sync_enabled',
+            'wpstg_remote_sync_send_success_notification',
+            'wpstg_remote_sync_safety_backup_request',
+        ];
+    }
+
+
+
+
+    private function getAllTransients(): array
+    {
+        return [
+            'wpstg_current_job',
+            'wpstg_last_job_outcome',
+            'wpstg_deactivation_reason',
+            'wpstg_rest_url',
+            'wpstg_is_wordpress_rest_url_reachable',
+            'wpstg.run_daily',
+            'wpstg_show_login_notice',
+            'wpstg_user_logged_in_status',
+            'wpstg_auto_login_failed',
+            'wpstg_auto_login_failed_reason',
+            'wpstg_failed_auto_login_attempts',
+            'wpstg_otp_sent',
+            'wpstg_otp_consecutive_failures',
+            'wpstg_otp_locked',
+            'wpstg_redirect_url',
+            'wpstg_oauth_state_dropbox',
+            'wpstg_oauth_state_google-drive',
+            'wpstg_oauth_state_one-drive',
+            'wpstg_oauth_state_pcloud',
+            'wpstg_remote_sync_session',
+            'wpstg_remote_sync_session_data',
+            'wpstg_remote_sync_session_events_offset',
+            'wpstg_remote_sync_initiator_activity',
+            'wpstg_remote_sync_source_activity',
+            'wpstg_backup_before_update_nudge',
+            'wpstg_remote_sync_safety_backup_nudge',
+            'wpstg.queue.request.get_method',
+            'is_invalid_backup_file_index',
+            'wpstg_permalinks_do_purge',
+            'wpstg_purge_litespeed_cache',
+            'wpstg_litespeed_server_purge',
+            'wpstg_activation_redirect',
+            'wpstg_optimizer_check_secret',
+            'wpstg_pro_activation_redirect',
+            'wpstg_weekly_version_update',
+            'wpstg_rate_limit_update_check',
+            'wpstg_issue_report_submitted',
+            'wpstg.backup.schedules.slack_report_sent',
+            'wpstg.backup.schedules.last_reported_job',
+            'wpstg_email_notification_access_token',
+            'wpstg.directory_listing.last_checked',
+            'wpstg_push_size_cache',
+            'wpstg.transfer_session.last_cleanup',
+            'wpstg.backup_directory_protection.last_checked',
+            'wpstg_magic_login_check_failures',
+        ];
+    }
+
+
+
+
+
+    private function deleteOptions(array $optionNames)
+    {
+        foreach ($optionNames as $optionName) {
+ 
+            if (in_array($optionName, $this->preserveOptions, true)) {
+                continue;
+            }
+
+            delete_option($optionName);
+        }
+    }
+
+
+
+
+
+
+
+
+    private function deleteCorruptedStagingSitesBackupOptions()
+    {
+        $this->deleteOptionsByPrefix('wpstg_staging_sites_backup_');
+    }
+
+
+
+
+
+
+
+    private function deleteOptionsByPrefix($prefix)
+    {
+        global $wpdb;
+
+        if (!($wpdb instanceof \wpdb)) {
+            return;
+        }
+
+        $optionNames = $wpdb->get_col($wpdb->prepare(
+            "SELECT option_name FROM `{$wpdb->options}` WHERE option_name LIKE %s",
+            $wpdb->esc_like($prefix) . '%'
+        ));
+
+        $this->deleteOptions($optionNames);
+    }
+
+
+
+
+
+
+
+    private function deleteUserMeta(array $metaKeys)
+    {
+        foreach ($metaKeys as $metaKey) {
+            delete_metadata('user', 0, $metaKey, '', true);
+        }
+    }
+
+
+
+
+    private function deleteTransients()
+    {
+        $transients = $this->getAllTransients();
+        foreach ($transients as $transientName) {
+            delete_transient($transientName);
+        }
+
+        $this->deleteTransientsByPrefix('wpstg_staging_update_job_');
+        $this->deleteTransientsByPrefix('wpstg.backup.schedules.email_report_');
+        $this->deleteTransientsByPrefix('wpstg.backup.schedules.slack_fingerprint_');
+        $this->deleteRemoteSyncAuthenticationActivityTransients();
+        $this->deleteTransientsByPrefix('wpstg_rs_lowdisk_ack_');
+    }
+
+
+
+
+
+
+
+    private function deleteTransientsByPrefix($prefix)
+    {
+        global $wpdb;
+
+        if (!($wpdb instanceof \wpdb)) {
+            return;
+        }
+
+        $valuePrefix   = '_transient_';
+        $timeoutPrefix = '_transient_timeout_';
+        $query         = $wpdb->prepare(
+            "SELECT option_name FROM `{$wpdb->options}` WHERE option_name LIKE %s OR option_name LIKE %s",
+            $wpdb->esc_like($valuePrefix . $prefix) . '%',
+            $wpdb->esc_like($timeoutPrefix . $prefix) . '%'
+        );
+
+        $transients = [];
+        foreach ($wpdb->get_col($query) as $optionName) {
+            $optionPrefix = strpos($optionName, $timeoutPrefix) === 0 ? $timeoutPrefix : $valuePrefix;
+            $transients[] = substr($optionName, strlen($optionPrefix));
+        }
+
+        foreach (array_unique($transients) as $transient) {
+            wp_cache_delete($transient, 'transient');
+            delete_option($valuePrefix . $transient);
+            delete_option($timeoutPrefix . $transient);
+        }
+    }
+
+
+
+
+
+
+
+    private function deleteRemoteSyncAuthenticationActivityTransients()
+    {
+        $transientPrefix  = 'wpstg_remote_sync_authentication_activity_';
+        $trackingOption   = 'wpstg_remote_sync_authentication_activity_transient';
+        $trackedTransient = get_option($trackingOption, '');
+
+        if (is_string($trackedTransient) && strpos($trackedTransient, $transientPrefix) === 0) {
+            delete_transient($trackedTransient);
+        }
+
+        delete_option($trackingOption);
+
+        $this->deleteTransientsByPrefix($transientPrefix);
+    }
+
+
+
+
+    private function cleanupEmptyPreserveOptions()
+    {
+        $this->cleanupEmptyOptions($this->preserveOptions);
+    }
+
+
+
+
+
+
+    private function cleanupEmptyOptions(array $options, bool $isSiteOptions = false)
+    {
+        foreach ($options as $option) {
+            $value = $isSiteOptions ? get_site_option($option): get_option($option);
+            if (empty($value)) {
+                $isSiteOptions ? delete_site_option($option): delete_option($option);
+            }
+        }
+    }
+
+
+
+
+
+
+    private function clearCronEvents()
+    {
+        wp_clear_scheduled_hook('wpstg_weekly_event');
+        wp_clear_scheduled_hook('wpstg_transfer_session_cleanup');
+        $this->unscheduleHook('wpstg_staging_update_backup_monitor');
+        $this->unscheduleHook('wpstg_check_staging_site_health');
+        $this->unscheduleHook('wpstg.backup.schedules.retry_email_report');
+    }
+
+
+
+
+
+
+
+
+    private function unscheduleHook($hook)
+    {
+        if (function_exists('wp_unschedule_hook')) {
+            wp_unschedule_hook($hook);
+            return;
+        }
+
+        $this->unscheduleHookWithoutCoreHelper($hook);
+    }
+
+
+
+
+
+
+
+    private function unscheduleHookWithoutCoreHelper($hook)
+    {
+        $cron = _get_cron_array();
+        if (!is_array($cron)) {
+            return;
+        }
+
+        foreach ($cron as $timestamp => $hooks) {
+            if (!isset($hooks[$hook]) || !is_array($hooks[$hook])) {
+                continue;
+            }
+
+            foreach ($hooks[$hook] as $event) {
+                wp_unschedule_event($timestamp, $hook, $event['args']);
+            }
+        }
+    }
+
+
+
+
+    private function cleanupWpStagingDirectories()
+    {
+        $uploadsBase        = $this->getUploadsDirectory() . 'wp-staging/';
+        $directoriesToClean = [
+            $this->getWpContentDirectory() . 'wp-staging',
+        ];
+
+ 
+        if (!$this->isDirectoryContainsWpstgFiles($uploadsBase . 'backups')) {
+            $directoriesToClean[] = $uploadsBase;
+        } else {
+            $directoriesToClean[] = $uploadsBase . 'cache';
+            $directoriesToClean[] = $uploadsBase . 'logs';
+            $directoriesToClean[] = $uploadsBase . 'tmp';
+        }
+
+        foreach ($directoriesToClean as $directory) {
+            $this->deleteDirectoryRecursively($directory);
+        }
+    }
+
+
+
+
+
+    private function deleteDirectoryRecursively(string $directory)
+    {
+        if (!is_dir($directory)) {
+            return;
+        }
+
+        $absPath = trailingslashit(ABSPATH);
+        if ($directory === $absPath || $directory === dirname($absPath)) {
+            return;
+        }
+
+        foreach (new \DirectoryIterator($directory) as $item) {
+            if ($item->isDot()) {
+                continue;
+            }
+
+            $itemPath = $item->getPathname();
+            if ($item->isDir()) {
+                $this->deleteDirectoryRecursively($itemPath);
+            } else {
+                @unlink($itemPath);
+            }
+        }
+
+        @rmdir($directory);
+    }
+
+
+
+
+    private function deleteNetworkOptions()
+    {
+        delete_site_option('wpstg_license_key');
+        delete_site_option('wpstg_license_status');
+        delete_site_option('wpstgDisableLicenseNotice');
+        $this->cleanupEmptyOptions($this->preserveOptions, true);
+    }
+
+
+
+
+    private function getUploadsDirectory(): string
+    {
+        $uploadDir = wp_upload_dir();
+        return trailingslashit($uploadDir['basedir']);
+    }
+
+
+
+
+    private function getWpContentDirectory(): string
+    {
+        return trailingslashit(WP_CONTENT_DIR);
+    }
+
+
+
+
+
+    private function isDirectoryContainsWpstgFiles(string $backupsDir): bool
+    {
+        if (!is_dir($backupsDir)) {
+            return false;
+        }
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($backupsDir, \FilesystemIterator::SKIP_DOTS)
+        );
+
+        foreach ($iterator as $item) {
+            if ($item->isFile() && strcasecmp($item->getExtension(), 'wpstg') === 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+new Uninstall();

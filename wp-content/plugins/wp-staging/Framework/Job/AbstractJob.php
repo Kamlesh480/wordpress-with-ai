@@ -1,0 +1,819 @@
+<?php
+
+ 
+ 
+
+namespace WPStaging\Framework\Job;
+
+use RuntimeException;
+use Throwable;
+use WPStaging\Core\Utils\Logger;
+use WPStaging\Core\WPStaging;
+use WPStaging\Framework\Adapter\Directory;
+use WPStaging\Framework\Analytics\ErrorCode;
+use WPStaging\Framework\Assets\Assets;
+use WPStaging\Framework\Exceptions\WPStagingException;
+use WPStaging\Framework\Filesystem\DiskWriteCheck;
+use WPStaging\Framework\Filesystem\Filesystem;
+use WPStaging\Framework\Interfaces\ShutdownableInterface;
+use WPStaging\Framework\Job\Dto\AbstractDto;
+use WPStaging\Framework\Job\Dto\JobDataDto;
+use WPStaging\Framework\Job\Dto\TaskResponseDto;
+use WPStaging\Framework\Job\Exception\DiskNotWritableException;
+use WPStaging\Framework\Job\Exception\TaskHealthException;
+use WPStaging\Framework\Job\Task\AbstractTask;
+use WPStaging\Framework\Traits\BenchmarkTrait;
+use WPStaging\Framework\Utils\Cache\Cache;
+use WPStaging\Framework\Queue\FinishedQueueException;
+
+use function WPStaging\functions\debug_log;
+
+abstract class AbstractJob implements ShutdownableInterface
+{
+    use BenchmarkTrait;
+
+ 
+    const TASK_ARGUMENT_SEPARATOR = '::';
+
+ 
+    const CACHE_OWNER_KEY = '__wpstgOwnerJobId';
+
+ 
+    protected $jobDataDto;
+
+ 
+    private $jobDataCache;
+
+ 
+    private $ownerJobId = '';
+
+ 
+    private $uploadWaitResponse;
+
+ 
+    private $hasPersisted = false;
+
+ 
+    private $hasShutdownBackstop = false;
+
+ 
+    protected $hasCurrentTaskCompleted = false;
+
+ 
+    protected $currentTaskName;
+
+ 
+    protected $currentTask;
+
+ 
+    protected $filesystem;
+
+ 
+    protected $directory;
+
+ 
+    protected $processLock;
+
+ 
+    protected $diskFullCheck;
+
+ 
+    protected $jobTransientCache;
+
+ 
+    protected $memoryExhaustErrorTmpFile = false;
+
+    protected $maxRetries = 10;
+
+
+
+
+    protected $isCancelJob = false;
+
+    public function __construct(
+        Cache $jobDataCache,
+        JobDataDto $jobDataDto,
+        Filesystem $filesystem,
+        Directory $directory,
+        ProcessLock $processLock,
+        DiskWriteCheck $diskFullCheck,
+        JobTransientCache $jobTransientCache
+    ) {
+        $this->jobDataDto   = $jobDataDto;
+        $this->jobDataCache = $jobDataCache;
+        $this->filesystem   = $filesystem;
+        $this->directory    = $directory;
+
+        $this->jobDataCache->setLifetime($jobDataDto instanceof \WPStaging\Backup\Dto\Interfaces\RemoteUploadDtoInterface ? -1 : HOUR_IN_SECONDS);
+        $this->jobDataCache->setFilename('jobCache_' . $this::getJobName());
+
+        $this->processLock   = $processLock;
+        $this->diskFullCheck = $diskFullCheck;
+        $this->maxRetries    = apply_filters(Assets::FILTER_TESTS_MAXIMUM_RETRIES, $this->maxRetries);
+
+        $this->jobTransientCache = $jobTransientCache;
+    }
+
+
+
+
+
+
+
+
+
+
+    public function persist()
+    {
+        if ($this->jobDataDto->isStatusCheck()) {
+            return;
+        }
+
+        try {
+            $this->diskFullCheck->testDiskIsWriteable();
+        } catch (DiskNotWritableException $e) {
+ 
+        }
+
+        if ($this->jobDataDto->isFinished() && !$this->jobDataDto->isCleaned()) {
+            $this->cleanup();
+            $this->jobDataDto->setCleaned();
+            $this->hasPersisted = true;
+            return;
+        }
+
+        $this->persistRunningTaskProgress();
+
+        $this->persistJobDataDto();
+
+        $this->hasPersisted = true;
+    }
+
+
+
+
+
+
+    protected function persistRunningTaskProgress()
+    {
+        if (!$this->currentTask instanceof AbstractTask || $this->hasCurrentTaskCompleted) {
+            return;
+        }
+
+        if ($this->currentTask->usesTaskQueue()) {
+            $this->jobDataDto->setQueueOffset($this->currentTask->getQueue()->getOffset());
+        }
+
+        $this->currentTask->persistStepsDto();
+    }
+
+
+
+
+    public function persistJobDataDto()
+    {
+        try {
+ 
+ 
+            if ($this->jobDataCache->save($this->getJobDataWithOwner(), true) === false) {
+                throw new \RuntimeException('Could not persist Job data to cache.');
+            }
+        } catch (\Exception $e) {
+            debug_log("Could not persist Job data to cache:"  . $e->getMessage());
+            throw new \RuntimeException('Could not persist Job data to cache: ' . $e->getMessage(), 0, $e);
+        }
+    }
+
+
+
+
+
+
+
+
+    public function onWpShutdown()
+    {
+        if ($this->hasPersisted) {
+            return;
+        }
+
+        $this->persist();
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public function persistIfShutdownActionDidNotRun()
+    {
+        if ($this->hasPersisted) {
+            return;
+        }
+
+        try {
+            $this->persist();
+        } catch (\Throwable $e) {
+ 
+ 
+            debug_log('Job state could not be persisted on shutdown: ' . $e->getMessage());
+        }
+    }
+
+
+
+
+    protected function registerShutdownBackstop()
+    {
+        if ($this->hasShutdownBackstop) {
+            return;
+        }
+
+        $this->hasShutdownBackstop = true;
+
+        register_shutdown_function([$this, 'persistIfShutdownActionDidNotRun']);
+    }
+
+
+
+
+
+    public static function getJobName()
+    {
+        throw new WPStagingException('Any extending class MUST override the getJobName method.');
+    }
+
+ 
+    abstract protected function getJobTasks();
+
+ 
+    abstract protected function execute();
+
+ 
+    abstract protected function init();
+
+ 
+    public function prepareAndExecute()
+    {
+ 
+ 
+ 
+ 
+ 
+        $this->processLock->lockProcess();
+
+        try {
+ 
+            $this->diskFullCheck->hasDiskWriteTestFailed();
+        } catch (DiskNotWritableException $e) {
+            $this->jobDataCache->delete();
+
+            return $this->getJobFailResponseForThrowable($e);
+        }
+
+        if ($this->getIsCancelled()) {
+            $this->jobDataCache->delete();
+
+            return $this->getJobCancelResponse();
+        }
+
+        try {
+            try {
+                $this->prepare();
+            } catch (TaskHealthException $e) {
+                if ($e->getCode() === TaskHealthException::CODE_TASK_FAILED_TOO_MANY_TIMES) {
+                    $this->jobDataCache->delete();
+
+                    return $this->getJobFailResponseForThrowable($e);
+                } else {
+                    return $this->getJobRetryResponse($e->getMessage());
+                }
+            } catch (RuntimeException $ex) {
+                $this->jobDataCache->delete();
+
+                return $this->getJobFailResponseForThrowable($ex);
+            }
+
+            if ($this->uploadWaitResponse !== null) {
+                return $this->uploadWaitResponse;
+            }
+
+            $this->registerShutdownBackstop();
+
+ 
+            $response = $this->execute();
+
+
+
+
+
+
+
+
+            list($nextTaskClass, $nextTaskArgument) = $this->splitTaskQueueEntry((string)$this->jobDataDto->getCurrentTask());
+
+            if ($response->getRetryAt() === 0 && is_subclass_of($nextTaskClass, AbstractTask::class)) {
+                $response->setStatusTitle(call_user_func("$nextTaskClass::getTaskTitleFor", $nextTaskArgument));
+            }
+
+            $this->removeMemoryExhaustErrorTmpFile();
+
+            if ($this->getIsCancelled()) {
+                $this->jobDataCache->delete();
+
+                return $this->getJobCancelResponse();
+            }
+
+            return $response;
+        } catch (DiskNotWritableException $e) {
+
+
+
+
+
+
+            return $this->getJobRetryResponse($e->getMessage());
+        }
+    }
+
+
+
+
+    public function updateTasks()
+    {
+        $this->init();
+        $this->addTasks($this->getJobTasks());
+    }
+
+
+
+
+    public function getTransientCache(): JobTransientCache
+    {
+        return $this->jobTransientCache;
+    }
+
+
+
+
+    public function getJobDataDto()
+    {
+        return $this->jobDataDto;
+    }
+
+
+
+
+
+
+
+
+    public function setOwnerJobId(string $jobId)
+    {
+        $this->ownerJobId = $jobId;
+    }
+
+
+
+
+
+
+
+    public function skipPersistOnShutdown()
+    {
+        $this->hasPersisted = true;
+    }
+
+
+
+
+
+
+
+
+
+
+    public function hasPersistedData(): bool
+    {
+        $data = $this->jobDataCache->get([]);
+        if (empty($data)) {
+            return false;
+        }
+
+        $storedOwner = isset($data[self::CACHE_OWNER_KEY]) ? (string)$data[self::CACHE_OWNER_KEY] : '';
+        if ($this->ownerJobId !== '' && $storedOwner !== '' && $storedOwner !== $this->ownerJobId) {
+            return false;
+        }
+
+        return true;
+    }
+
+
+
+
+    public function setJobDataDto($jobDataDto)
+    {
+        $this->jobDataDto = $jobDataDto;
+    }
+
+    public function getIsCancelled(): bool
+    {
+        if ($this->isCancelJob) {
+            return false;
+        }
+
+        try {
+            return $this->jobTransientCache->getJobStatus() === JobTransientCache::STATUS_CANCELLED;
+        } catch (\Throwable $e) {
+ 
+            return false;
+        }
+    }
+
+
+
+
+    protected function checkLastTaskHealth()
+    {
+ 
+        if ($this->jobDataDto->getTaskHealthIsRetrying()) {
+            $this->jobDataDto->setTaskHealthIsRetrying(false);
+
+            return;
+        }
+
+        if (!$this->jobDataDto->getTaskHealthResponded()) {
+ 
+            $this->jobDataDto->setTaskHealthSequentialFailedRetries($this->jobDataDto->getTaskHealthSequentialFailedRetries() + 1);
+            $this->jobDataCache->save($this->getJobDataWithOwner());
+
+            if ($this->jobDataDto->getTaskHealthSequentialFailedRetries() >= $this->maxRetries) {
+                throw TaskHealthException::taskFailedTooManyTimes();
+            } else {
+                $this->jobDataDto->setTaskHealthIsRetrying(true);
+                throw TaskHealthException::retryingTask($this->jobDataDto->getTaskHealthSequentialFailedRetries(), $this->maxRetries);
+            }
+        }
+    }
+
+    public function prepare()
+    {
+        $this->hasCurrentTaskCompleted = false;
+        $data = $this->jobDataCache->get([]);
+
+        if ($data) {
+            unset($data[self::CACHE_OWNER_KEY]);
+            $this->jobDataDto->hydrate($data);
+        }
+
+ 
+        WPStaging::getInstance()->getContainer()->singleton(JobDataDto::class, $this->jobDataDto);
+
+        $action = empty($_GET['action']) ? '' : sanitize_text_field($_GET['action']);
+        if (empty($action)) {
+            $action = empty($_POST['action']) ? '' : sanitize_text_field($_POST['action']);
+        }
+
+        $this->jobDataDto->setStatusCheck(in_array($action, ['wpstg--backups--status', 'wpstg--job--status'], true));
+        if ($this->jobDataDto->isStatusCheck()) {
+            return;
+        }
+
+        if ($this->jobDataDto->isInit()) {
+            $this->cleanup();
+            $this->init();
+            $this->jobDataDto->setCurrentTaskIndex(0);
+            $this->jobDataDto->setCurrentTaskData([]);
+            $this->addTasks($this->getJobTasks());
+        } else {
+            $this->checkLastTaskHealth();
+        }
+
+        $this->jobDataDto->setInit(false);
+
+        $this->currentTaskName = $this->jobDataDto->getCurrentTask();
+
+        if (empty($this->currentTaskName)) {
+            throw new \RuntimeException('Internal error: Next task of queue job is null or invalid.');
+        }
+
+        $this->uploadWaitResponse = $this->getUploadWaitResponse();
+        if ($this->uploadWaitResponse !== null) {
+            return;
+        }
+
+        list($taskClass, $taskInstanceArgument) = $this->splitTaskQueueEntry($this->currentTaskName);
+
+ 
+        $this->currentTask = WPStaging::getInstance()->get($taskClass);
+
+        if (!$this->currentTask instanceof AbstractTask) {
+            throw new \RuntimeException($this->getTaskStartFailureMessage($this->currentTaskName, $this->currentTask));
+        }
+
+        $this->currentTask->setTaskInstanceArgument($taskInstanceArgument);
+
+        if (!$this->jobDataDto instanceof AbstractDto) {
+            throw new \RuntimeException('Job Queue DTO is null or invalid.');
+        }
+
+        $this->currentTask->setJobContext($this);
+        $this->currentTask->setJobDataDto($this->jobDataDto);
+        $this->currentTask->setJobId($this->jobDataDto->getId());
+        $this->currentTask->setJobName($this::getJobName());
+        $this->currentTask->setDebug(defined('WPSTG_DEBUG') && WPSTG_DEBUG);
+        $this->currentTask->setupLogger();
+
+ 
+        $this->jobDataDto->setTaskHealthName($this->currentTaskName);
+        $this->jobDataDto->setTaskHealthResponded(false);
+    }
+
+ 
+    private function getUploadWaitResponse()
+    {
+        if (!$this->jobDataDto instanceof \WPStaging\Backup\Dto\Interfaces\RemoteUploadDtoInterface) {
+            return null;
+        }
+
+        $state = $this->jobDataDto->getRemoteUploadRetry();
+        $now = WPStaging::make(\WPStaging\Framework\Utils\Times::class)->getCurrentTimestamp();
+        if (empty($state['retryAt']) || $state['retryAt'] <= $now) {
+            return null;
+        }
+
+        $response = new TaskResponseDto();
+        $response->setIsRunning(true);
+        $response->setJobId($this->jobDataDto->getId());
+        $response->setStatusTitle($state['statusTitle']);
+        $response->setRetryAt($state['retryAt']);
+        $response->setRetryDelay($state['retryAt'] - $now);
+        $response->setPercentage($state['percentage'] ?? 0);
+        $response->setStep($state['step'] ?? 0);
+        $response->setTotal($state['total'] ?? 0);
+        return $response;
+    }
+
+    public function commitLogs()
+    {
+        if ($this->currentTask instanceof AbstractTask) {
+            $this->currentTask->commitLogs();
+        }
+    }
+
+ 
+    public function getCurrentTask()
+    {
+        return $this->currentTask;
+    }
+
+
+
+
+
+    public function setMemoryExhaustErrorTmpFile(string $memoryExhaustErrorTmpFile)
+    {
+        $this->memoryExhaustErrorTmpFile = $memoryExhaustErrorTmpFile;
+    }
+
+    protected function removeMemoryExhaustErrorTmpFile()
+    {
+        if ($this->memoryExhaustErrorTmpFile === '') {
+            return;
+        }
+
+        if (file_exists($this->memoryExhaustErrorTmpFile)) {
+            unlink($this->memoryExhaustErrorTmpFile);
+        }
+    }
+
+    protected function cleanup()
+    {
+ 
+        $this->filesystem->setExcludePaths(['*.*', '!*.cache.php', '!*.cache', '!*.wpstg', '!*.sql']);
+        $this->filesystem->delete($this->directory->getCacheDirectory(), $deleteSelf = false);
+        $this->filesystem->setExcludePaths([]);
+        $this->filesystem->mkdir($this->directory->getCacheDirectory(), true);
+    }
+
+
+
+
+    protected function deleteJobDataCache()
+    {
+        $this->jobDataCache->delete();
+    }
+
+
+
+
+
+
+    protected function getResponse(TaskResponseDto $response)
+    {
+        $this->hasCurrentTaskCompleted = !$response->isRunning();
+        $this->jobDataDto->setTaskHealthResponded(true);
+        $this->jobDataDto->setTaskHealthSequentialFailedRetries(0);
+
+        $response->setJob(substr($this->findCurrentJob(), 3));
+
+        try {
+            if (!$response->isRunning()) {
+                $this->jobDataDto->moveToNextTask();
+ 
+ 
+ 
+                $this->persistJobDataDto();
+            }
+        } catch (FinishedQueueException $e) {
+            $this->jobDataDto->setFinished(true);
+ 
+            $this->persistJobDataDto();
+
+            return $response;
+        }
+
+        $response->setIsRunning(true);
+
+        return $response;
+    }
+
+    private function findCurrentJob()
+    {
+        $class = explode('\\', static::class);
+
+        return end($class);
+    }
+
+    protected function addTasks(array $tasks = [])
+    {
+        $this->jobDataDto->setTaskQueue($tasks);
+    }
+
+
+
+
+
+
+
+
+
+    public static function taskQueueEntry(string $taskClass, string $argument = ''): string
+    {
+        if ($argument === '') {
+            return $taskClass;
+        }
+
+        return $taskClass . self::TASK_ARGUMENT_SEPARATOR . $argument;
+    }
+
+
+
+
+
+    private function splitTaskQueueEntry(string $queueEntry): array
+    {
+        $separatorPosition = strpos($queueEntry, self::TASK_ARGUMENT_SEPARATOR);
+        if ($separatorPosition === false) {
+            return [$queueEntry, ''];
+        }
+
+        return [
+            substr($queueEntry, 0, $separatorPosition),
+            substr($queueEntry, $separatorPosition + strlen(self::TASK_ARGUMENT_SEPARATOR)),
+        ];
+    }
+
+    protected function getJobCancelResponse(): TaskResponseDto
+    {
+        if ($this->jobDataDto instanceof \WPStaging\Backup\Dto\Interfaces\RemoteUploadDtoInterface) {
+            $this->jobDataDto->setRemoteUploadRetry([]);
+        }
+
+        $response = new TaskResponseDto();
+        $response->setIsRunning(false);
+        $response->setJobStatus('JOB_CANCEL');
+        $response->addMessage([
+            'type'    => 'critical',
+            'date'    => $this->getFormattedDate(),
+            'message' => esc_html__('Job is cancelled', 'wp-staging'),
+        ]);
+
+        return $response;
+    }
+
+
+
+
+
+
+
+
+    protected function getTaskStartFailureMessage(string $taskName, $resolved): string
+    {
+        return sprintf(
+            'Internal error: the task %s could not be started (got %s). Please run the job again, and contact support@wp-staging.com if it fails again.',
+            $taskName,
+            is_object($resolved) ? get_class($resolved) : gettype($resolved)
+        );
+    }
+
+
+
+
+
+
+
+    protected function getJobFailResponseForThrowable(Throwable $throwable): TaskResponseDto
+    {
+        return $this->getJobFailResponse($throwable->getMessage(), ErrorCode::fromThrowable($throwable));
+    }
+
+    public function getJobFailResponse(string $message, string $errorCode): TaskResponseDto
+    {
+        $response = new TaskResponseDto();
+        $response->setIsRunning(false);
+        $response->setJobStatus('JOB_FAIL');
+        $response->setJobId($this->findFailingJobId());
+        $failure = [
+            'type'    => 'critical',
+            'date'    => $this->getFormattedDate(),
+            'message' => esc_html($message, 'wp-staging'),
+        ];
+
+        if ($errorCode !== '') {
+            $failure['errorCode'] = $errorCode;
+        }
+
+        $response->addMessage($failure);
+
+        return $response;
+    }
+
+
+
+
+
+
+    private function findFailingJobId(): string
+    {
+        if ($this->jobDataDto instanceof JobDataDto && $this->jobDataDto->hasId()) {
+            return (string)$this->jobDataDto->getId();
+        }
+
+        if ($this->jobTransientCache instanceof JobTransientCache) {
+            return $this->jobTransientCache->getJobId();
+        }
+
+        return '';
+    }
+
+    protected function getJobRetryResponse(string $message): TaskResponseDto
+    {
+        $response = new TaskResponseDto();
+        $response->setIsRunning(true);
+        $response->setJobStatus('JOB_RETRY');
+        $response->addMessage([
+            'type'    => 'warning',
+            'date'    => $this->getFormattedDate(),
+            'message' => esc_html($message, 'wp-staging'),
+        ]);
+
+        return $response;
+    }
+
+
+
+
+    private function getFormattedDate()
+    {
+        return current_time(Logger::LOG_DATETIME_FORMAT);
+    }
+
+
+
+
+
+
+
+    private function getJobDataWithOwner(): array
+    {
+        $data = $this->jobDataDto->toArray();
+
+        if ($this->ownerJobId !== '') {
+            $data[self::CACHE_OWNER_KEY] = $this->ownerJobId;
+        }
+
+        return $data;
+    }
+}

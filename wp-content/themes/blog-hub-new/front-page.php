@@ -90,9 +90,11 @@ $latest_query = new WP_Query(
 		<div class="bh-container">
 			<span class="bh-featured__eyebrow"><?php esc_html_e( 'Featured', 'blog-hub' ); ?></span>
 			<article class="bh-featured__card">
-				<div class="bh-featured__media">
+				<div class="bh-featured__media<?php echo has_post_thumbnail( $featured_id ) ? '' : ' bh-featured__media--empty'; ?>">
 					<?php if ( has_post_thumbnail( $featured_id ) ) : ?>
 						<?php echo get_the_post_thumbnail( $featured_id, 'large' ); ?>
+					<?php else : ?>
+						<i class="fa-regular fa-image" aria-hidden="true"></i>
 					<?php endif; ?>
 				</div>
 				<div class="bh-featured__body">

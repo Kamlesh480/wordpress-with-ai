@@ -1,0 +1,279 @@
+<?php
+
+namespace WPStaging\Staging\Traits;
+
+use WPStaging\Core\Utils\Logger;
+use WPStaging\Core\WPStaging;
+use WPStaging\Pro\License\LicenseCapabilities;
+use WPStaging\Pro\License\Licensing;
+use WPStaging\Staging\Service\StagingSetup;
+
+
+
+
+trait WithStagingRequirementLogs
+{
+
+
+
+    protected function writeAdvancedSettingsToLogs()
+    {
+        $settingsToLog = $this->getAdvancedSettingsToLog();
+        if (empty($settingsToLog)) {
+            return;
+        }
+
+        $this->logger->add('Advanced Settings', Logger::TYPE_INFO);
+
+        foreach ($settingsToLog as $setting) {
+            $this->writeAdvancedSettingToLogs($setting);
+        }
+    }
+
+
+
+
+    private function getAdvancedSettingsToLog(): array
+    {
+        if (!$this->isProRequirementLog() || !method_exists($this->jobDataDto, 'getJobType')) {
+            return [];
+        }
+
+        switch ($this->jobDataDto->getJobType()) {
+            case StagingSetup::JOB_NEW_STAGING_SITE:
+                return $this->getCreateAdvancedSettingsToLog();
+            case StagingSetup::JOB_UPDATE:
+                return $this->getUpdateAdvancedSettingsToLog();
+            case StagingSetup::JOB_PUSH:
+                return $this->getPushAdvancedSettingsToLog();
+        }
+
+        return [];
+    }
+
+
+
+
+    private function getCreateAdvancedSettingsToLog(): array
+    {
+        $settingsToLog = [
+            $this->booleanSetting('New Admin Account', 'getUseNewAdminAccount'),
+            $this->stringSetting('Email', 'getAdminEmail'),
+            $this->sensitiveStringSetting('Password', 'getAdminPassword'),
+            $this->stringSetting('Database Server', 'getDatabaseServer'),
+            $this->stringSetting('Database User', 'getDatabaseUser'),
+            $this->sensitiveStringSetting('Database Password', 'getDatabasePassword'),
+            $this->stringSetting('Database', 'getDatabaseName'),
+            $this->stringSetting('Database Prefix', 'getDatabasePrefix'),
+            $this->booleanSetting('Database SSL', 'getDatabaseSsl'),
+            $this->stringSetting('Clone Directory', 'getCustomPath'),
+            $this->stringSetting('Clone Host', 'getCustomUrl'),
+            $this->booleanSetting('Symlink Uploads Folder', 'getIsUploadsSymlinked'),
+            $this->booleanSetting('WP CRON Enabled', 'getIsCronEnabled'),
+            $this->booleanSetting('Emails Sending Allowed', 'getIsEmailsAllowed'),
+            $this->booleanSetting('Email Reminder Enabled', 'getIsEmailsReminderEnabled'),
+            $this->booleanSetting('Auto Update Plugins Enabled', 'getIsAutoUpdatePlugins'),
+            $this->booleanSetting('Create Blank WP Site Enabled', 'getIsBlankSite'),
+            $this->stringSetting('Blank WP Site Version', 'getBlankWpVersion'),
+        ];
+
+        if ($this->isWooSchedulerSettingRendered()) {
+            $settingsToLog[] = $this->booleanSetting(
+                'WooCommerce Scheduler Enabled',
+                'getIsWooSchedulerEnabled'
+            );
+        }
+
+        return $settingsToLog;
+    }
+
+
+
+
+    private function getUpdateAdvancedSettingsToLog(): array
+    {
+        return [
+            $this->booleanSetting('Emails Sending Allowed', 'getIsEmailsAllowed'),
+            $this->booleanSetting('Email Reminder Enabled', 'getIsEmailsReminderEnabled'),
+            $this->booleanSetting('Auto Update Plugins Enabled', 'getIsAutoUpdatePlugins'),
+            $this->booleanSetting('Clean Plugins/Themes', 'getIsCleanPluginsThemes'),
+            $this->booleanSetting('Clean Uploads', 'getIsCleanUploads'),
+        ];
+    }
+
+
+
+
+    private function getPushAdvancedSettingsToLog(): array
+    {
+        return [
+            $this->booleanSetting('Clean Plugins/Themes', 'getIsCleanPluginsThemes'),
+            $this->booleanSetting('Clean Uploads', 'getIsCleanUploads'),
+            $this->booleanSetting('Backup Uploads', 'getIsBackupUploads'),
+            $this->booleanSetting('Create Full Site Backup', 'getIsCreateDatabaseBackup'),
+        ];
+    }
+
+
+
+
+
+    private function writeAdvancedSettingToLogs(array $setting)
+    {
+        switch ($setting['type']) {
+            case 'boolean':
+                $this->writeBooleanSettingToLogs($setting['label'], $setting['methods']);
+                break;
+            case 'sensitive':
+                $this->writeSensitiveStringSettingToLogs($setting['label'], $setting['methods']);
+                break;
+            default:
+                $this->writeStringSettingToLogs($setting['label'], $setting['methods']);
+                break;
+        }
+    }
+
+
+
+
+
+
+    private function stringSetting(string $label, $methods): array
+    {
+        return [
+            'type'    => 'string',
+            'label'   => $label,
+            'methods' => $methods,
+        ];
+    }
+
+
+
+
+
+
+    private function sensitiveStringSetting(string $label, $methods): array
+    {
+        return [
+            'type'    => 'sensitive',
+            'label'   => $label,
+            'methods' => $methods,
+        ];
+    }
+
+
+
+
+
+
+    private function booleanSetting(string $label, $methods): array
+    {
+        return [
+            'type'    => 'boolean',
+            'label'   => $label,
+            'methods' => $methods,
+        ];
+    }
+
+
+
+
+    private function isProRequirementLog(): bool
+    {
+        return strpos(static::class, '\\Pro\\') !== false;
+    }
+
+
+
+
+    private function isWooSchedulerSettingRendered(): bool
+    {
+        if (!class_exists(Licensing::class)) {
+            return false;
+        }
+
+        return WPStaging::make(Licensing::class)->licenseAllows(LicenseCapabilities::WOO_SCHEDULER);
+    }
+
+
+
+
+
+
+    private function writeStringSettingToLogs(string $label, $methods)
+    {
+        $value = $this->getLogSettingValue((array)$methods);
+        if ($value === null) {
+            return;
+        }
+
+        $this->logger->add(sprintf('- %s : %s', $label, $value !== '' ? $value : 'Not Set'), Logger::TYPE_INFO_SUB);
+    }
+
+
+
+
+
+
+    private function writeSensitiveStringSettingToLogs(string $label, $methods)
+    {
+        $value = $this->getLogSettingValue((array)$methods);
+        if ($value === null) {
+            return;
+        }
+
+        $value = $value !== '' ? '**************' : 'Not Set';
+
+        $this->logger->add(sprintf('- %s : %s', $label, $value), Logger::TYPE_INFO_SUB);
+    }
+
+
+
+
+
+
+    private function writeBooleanSettingToLogs(string $label, $methods)
+    {
+        $value = $this->getLogSettingValue((array)$methods);
+        if ($value === null) {
+            return;
+        }
+
+        $value = $value ? 'True' : 'False';
+
+        $this->logger->add(sprintf('- %s : %s', $label, $value), Logger::TYPE_INFO_SUB);
+    }
+
+
+
+
+
+    private function getLogSettingValue(array $methods)
+    {
+        $fallbackValue = null;
+        foreach ($this->getLogSettingSources() as $source) {
+            foreach ($methods as $method) {
+                if (!method_exists($source, $method)) {
+                    continue;
+                }
+
+                $value = $source->{$method}();
+                if ($value !== '' && $value !== null) {
+                    return $value;
+                }
+
+                $fallbackValue = $value;
+            }
+        }
+
+        return $fallbackValue;
+    }
+
+
+
+
+    private function getLogSettingSources(): array
+    {
+        return [$this->jobDataDto];
+    }
+}

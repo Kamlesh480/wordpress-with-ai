@@ -1,0 +1,868 @@
+<?php
+
+namespace WPStaging\Backup\Service;
+
+use WPStaging\Backup\BackupHeader;
+use WPStaging\Backup\Dto\File\ExtractorDto;
+use WPStaging\Backup\Entity\BackupMetadata;
+use WPStaging\Backup\Entity\FileBeingExtracted;
+use WPStaging\Backup\FileHeader;
+use WPStaging\Backup\Interfaces\IndexLineInterface;
+use WPStaging\Framework\Adapter\DirectoryInterface;
+use WPStaging\Framework\Job\Exception\FileValidationException;
+use WPStaging\Framework\Filesystem\FileObject;
+use WPStaging\Framework\Filesystem\PathIdentifier;
+use WPStaging\Framework\Filesystem\PartIdentifier;
+use WPStaging\Framework\Filesystem\Permissions;
+use WPStaging\Framework\Traits\DebugLogTrait;
+use WPStaging\Framework\Traits\FormatTrait;
+
+
+
+
+
+
+
+abstract class AbstractExtractor
+{
+    use FormatTrait;
+    use DebugLogTrait;
+
+ 
+    const VALIDATE_DIRECTORY = 'validate';
+
+ 
+    const ITEM_SKIP_EXCEPTION_CODE = 4001;
+
+ 
+    const FINISHED_QUEUE_EXCEPTION_CODE = 4002;
+
+ 
+    const FILE_FILTERED_EXCEPTION_CODE = 4003;
+
+
+
+
+
+    protected $extractingFile;
+
+ 
+    protected $wpstgFile;
+
+ 
+    protected $dirRestore;
+
+ 
+    protected $wpstgIndexOffsetForCurrentFile;
+
+ 
+    protected $wpstgIndexOffsetForNextFile;
+
+ 
+    protected $extractorDto;
+
+ 
+    protected $bytesWrittenThisRequest = 0;
+
+ 
+    protected $isBackupFormatV1 = false;
+
+ 
+    protected $pathIdentifier;
+
+ 
+    protected $directory;
+
+ 
+    protected $backupHeader;
+
+ 
+    protected $indexLineDto;
+
+ 
+    protected $backupMetadata;
+
+ 
+    protected $extractIdentifier = '';
+
+ 
+    protected $isValidateOnly = false;
+
+ 
+    protected $excludedIdentifier = [];
+
+ 
+    protected $databaseBackupFile;
+
+ 
+    protected $defaultDirectoryOctal = 0755;
+
+ 
+    protected $currentIdentifier;
+
+ 
+    protected $throwExceptionOnValidationFailure = false;
+
+ 
+    protected $lastIdentifiablePath;
+
+    public function __construct(
+        PathIdentifier $pathIdentifier,
+        DirectoryInterface $directory,
+        BackupHeader $backupHeader,
+        Permissions $permissions
+    ) {
+        $this->pathIdentifier = $pathIdentifier;
+        $this->directory      = $directory;
+        $this->backupHeader   = $backupHeader;
+
+        $this->defaultDirectoryOctal = $permissions->getDirectoryOctal();
+        $this->excludedIdentifier    = [];
+    }
+
+
+
+
+
+    public function setExcludedIdentifiers(array $excludedIdentifier)
+    {
+        $this->excludedIdentifier = $excludedIdentifier;
+    }
+
+    public function setExtractOnlyPart(string $partToExtract)
+    {
+ 
+        $this->excludedIdentifier = [];
+ 
+        if (empty($partToExtract)) {
+            return;
+        }
+
+        $parts = [
+            PartIdentifier::DROPIN_PART_IDENTIFIER,
+            PartIdentifier::DATABASE_PART_IDENTIFIER,
+            PartIdentifier::MU_PLUGIN_PART_IDENTIFIER,
+            PartIdentifier::PLUGIN_PART_IDENTIFIER,
+            PartIdentifier::THEME_PART_IDENTIFIER,
+            PartIdentifier::UPLOAD_PART_IDENTIFIER,
+            PartIdentifier::LANGUAGE_PART_IDENTIFIER,
+            PartIdentifier::WP_CONTENT_PART_IDENTIFIER,
+            PartIdentifier::WP_ROOT_PART_IDENTIFIER,
+        ];
+
+        foreach ($parts as $part) {
+            if ($part === $partToExtract) {
+                continue;
+            }
+
+            if ($part === PartIdentifier::DROPIN_PART_IDENTIFIER) {
+                $this->excludedIdentifier[] = PartIdentifier::DROPIN_PART_IDENTIFIER;
+                continue;
+            }
+
+ 
+            if ($part === PartIdentifier::DATABASE_PART_IDENTIFIER) {
+                $this->excludedIdentifier[] = PartIdentifier::DATABASE_PART_IDENTIFIER;
+                continue;
+            }
+
+            $this->excludedIdentifier[] = $this->pathIdentifier->getIdentifierByPartName($part);
+        }
+    }
+
+
+
+
+
+    public function setIndexLineDto(IndexLineInterface $indexLineDto)
+    {
+        $this->indexLineDto = $indexLineDto;
+    }
+
+
+
+
+
+    public function setIsBackupFormatV1(bool $isBackupFormatV1)
+    {
+        $this->isBackupFormatV1 = $isBackupFormatV1;
+    }
+
+    public function setThrowExceptionOnValidationFailure(bool $throwExceptionOnValidationFailure)
+    {
+        $this->throwExceptionOnValidationFailure = $throwExceptionOnValidationFailure;
+    }
+
+
+
+
+    public function getBytesWrittenInThisRequest(): int
+    {
+        return $this->bytesWrittenThisRequest;
+    }
+
+    public function getExtractorDto(): ExtractorDto
+    {
+        return $this->extractorDto;
+    }
+
+
+
+
+
+
+
+    public function setup(ExtractorDto $extractorDto, string $backupFilePath, string $tmpPath = '')
+    {
+        $this->dirRestore   = $tmpPath;
+        $this->extractorDto = $extractorDto;
+        $this->setFileToExtract($backupFilePath);
+
+        if (empty($this->dirRestore)) {
+            $this->dirRestore = $this->directory->getTmpDirectory();
+        }
+
+        $this->dirRestore = rtrim($this->dirRestore, '/') . '/';
+    }
+
+
+
+
+
+    public function setFileToExtract(string $filePath)
+    {
+        try {
+            $this->wpstgFile          = new FileObject($filePath);
+            $this->backupMetadata     = new BackupMetadata();
+            $this->backupMetadata     = $this->backupMetadata->hydrateByFile($this->wpstgFile);
+            $this->databaseBackupFile = $this->backupMetadata->getDatabaseFile();
+            $this->extractorDto->setIndexStartOffset($this->backupMetadata->getHeaderStart());
+            $this->extractorDto->setTotalChunks($this->backupMetadata->getTotalChunks());
+        } catch (\Exception $ex) {
+            $this->throwMissingFileException($ex, $filePath);
+        }
+    }
+
+
+
+
+
+    public function findFileToExtract(int $fileToExtractOffset = 0)
+    {
+        if ($fileToExtractOffset > 0) {
+            $this->extractorDto->setCurrentIndexOffset($fileToExtractOffset);
+        }
+
+        if ($this->extractorDto->getCurrentIndexOffset() === 0) {
+            $this->extractorDto->setCurrentIndexOffset($this->extractorDto->getIndexStartOffset());
+        }
+
+        $this->setWpstgFileOffset();
+
+ 
+        $this->wpstgIndexOffsetForCurrentFile = $this->wpstgFile->ftell();
+
+        $rawIndexFile = $this->wpstgFile->readAndMoveNext();
+
+ 
+        $this->wpstgIndexOffsetForNextFile = $this->wpstgFile->ftell();
+
+        if (!$this->indexLineDto->isIndexLine($rawIndexFile)) {
+            throw new \Exception("", self::FINISHED_QUEUE_EXCEPTION_CODE);
+        }
+
+ 
+        $backupFileIndex  = $this->indexLineDto->readIndexLine($rawIndexFile);
+        $identifiablePath = $backupFileIndex->getIdentifiablePath();
+        if (empty($identifiablePath)) {
+            $this->extractorDto->incrementTotalFilesSkipped();
+            $this->extractorDto->setCurrentIndexOffset($this->wpstgIndexOffsetForNextFile);
+            $this->debugLog('Identifier not found during extraction. Raw Index is logged: ' . rtrim($rawIndexFile, "\n"));
+            throw new \Exception('Skipping file: Identifier not found. Raw Index is logged', self::ITEM_SKIP_EXCEPTION_CODE);
+        }
+
+        if ($this->pathIdentifier->hasPathTraversal($identifiablePath)) {
+            $this->extractorDto->incrementTotalFilesSkipped();
+            $this->extractorDto->setCurrentIndexOffset($this->wpstgIndexOffsetForNextFile);
+            $this->debugLog('Skipping file with unsafe path (possible path traversal): ' . rtrim($identifiablePath, "\n"));
+            throw new \Exception('Skipping file: unsafe path detected', self::ITEM_SKIP_EXCEPTION_CODE);
+        }
+
+        $isSegmentedEntry = $backupFileIndex instanceof FileHeader && $this->isSegmentedFileHeader($backupFileIndex);
+        if ($identifiablePath === $this->lastIdentifiablePath && !$isSegmentedEntry) {
+            $this->extractorDto->incrementTotalFilesSkipped();
+            $this->extractorDto->setCurrentIndexOffset($this->wpstgIndexOffsetForNextFile);
+            $this->debugLog('File already extracted: ' . rtrim($identifiablePath, "\n"));
+            throw new \Exception('Skipping file: ' . $identifiablePath, self::ITEM_SKIP_EXCEPTION_CODE);
+        }
+
+        $identifier              = $this->pathIdentifier->getIdentifierFromPath($identifiablePath);
+        $this->currentIdentifier = $identifier;
+        if ($this->isFileSkipped($identifiablePath, $identifier)) {
+            $this->extractorDto->incrementTotalFilesSkipped();
+            $this->extractorDto->setCurrentIndexOffset($this->wpstgIndexOffsetForNextFile);
+            $this->debugLog('Skipping File By Rule: ' . rtrim($identifiablePath, "\n"));
+            throw new \Exception('Skipping file: ' . $identifiablePath, self::ITEM_SKIP_EXCEPTION_CODE);
+        }
+
+        $extractFolder = $this->getExtractFolder($identifier);
+
+        if (!$this->createDirectory($extractFolder)) {
+            throw new \RuntimeException("Could not create folder to extract backup file: $extractFolder. Please check folder permissions.");
+        }
+
+        $this->setupExtractingFile($backupFileIndex, $extractFolder);
+
+        if (!$this->pathIdentifier->isPathWithinRoot($this->extractingFile->getBackupPath(), $extractFolder)) {
+            $this->extractorDto->incrementTotalFilesSkipped();
+            $this->extractorDto->setCurrentIndexOffset($this->wpstgIndexOffsetForNextFile);
+            $this->debugLog('Skipping file outside restore root (possible path traversal): ' . rtrim($identifiablePath, "\n"));
+            throw new \Exception('Skipping file: unsafe path detected', self::ITEM_SKIP_EXCEPTION_CODE);
+        }
+
+        if ($this->isFileExtracted($backupFileIndex, $this->extractingFile->getBackupPath())) {
+            $this->extractorDto->incrementTotalFilesSkipped();
+            $this->extractorDto->setCurrentIndexOffset($this->wpstgIndexOffsetForNextFile);
+            $this->debugLog('Skipping already extracted file: ' . rtrim($identifiablePath, "\n"));
+            throw new \Exception('File already extracted: ' . $identifiablePath, self::ITEM_SKIP_EXCEPTION_CODE);
+        }
+
+        $this->cleanExistingFile($identifier);
+
+        $this->wpstgFile->fseek($this->extractingFile->getCurrentOffset());
+        $this->indexLineDto = $backupFileIndex; 
+    }
+
+
+
+
+
+
+
+
+    public function createEmptyFile(string $filePath): bool
+    {
+ 
+        if (file_exists($filePath)) {
+            return true;
+        }
+
+ 
+ 
+ 
+        return $this->filePutContents($filePath, '') !== false;
+    }
+
+    public function isExtractingFileExtracted(callable $logInfo): bool
+    {
+        $this->bytesWrittenThisRequest += $this->extractingFile->getWrittenBytes();
+
+        if ($this->extractingFile->isFinished()) {
+            return true;
+        }
+
+        if ($this->extractingFile->getWrittenBytes() > 0 && $this->isBigFile()) {
+            $percentProcessed = ceil(($this->extractingFile->getWrittenBytes() / $this->extractingFile->getTotalBytes()) * 100);
+            $logInfo(sprintf('Extracting big file: %s - %s/%s (%s%%)', $this->extractingFile->getRelativePath(), $this->formatSize($this->extractingFile->getWrittenBytes(), 2), $this->formatSize($this->extractingFile->getTotalBytes(), 2), $percentProcessed));
+        }
+
+        $this->extractorDto->setCurrentIndexOffset($this->wpstgIndexOffsetForCurrentFile);
+        $this->extractorDto->setExtractorFileWrittenBytes($this->extractingFile->getWrittenBytes());
+        $this->extractorDto->setExtractorFileReadBytes($this->extractingFile->getReadBytes());
+
+        return false;
+    }
+
+    public function validateExtractedFileAndMoveNext()
+    {
+        $destinationFilePath = $this->extractingFile->getBackupPath();
+        $pathForErrorLogging = $this->pathIdentifier->transformIdentifiableToPath($this->indexLineDto->getIdentifiablePath());
+        if (file_exists($destinationFilePath) && filesize($destinationFilePath) === 0 && $this->extractingFile->getTotalBytes() !== 0) {
+            throw new \RuntimeException(sprintf('File %s is empty', $pathForErrorLogging));
+        }
+
+        if ($this->isBackupFormatV1) {
+            $this->maybeRemoveLastAccidentalCharFromLastExtractedFile();
+        }
+
+        $isValidated = true;
+        $exception   = null;
+        clearstatcache();
+
+ 
+        if ($this->extractingFile->areHeaderBytesRemoved()) {
+            $this->debugLog('Skipping validation for file because duplicate file headers were removed: ' . $pathForErrorLogging);
+        } elseif ($this->indexLineDto instanceof FileHeader && $this->isSegmentedFileHeader($this->indexLineDto)) {
+            $fileHeader = $this->indexLineDto;
+
+ 
+ 
+ 
+ 
+ 
+ 
+            try {
+                $this->validateMultipartSegment($destinationFilePath, $pathForErrorLogging);
+                if (!$fileHeader->getIsNextPartRequired()) {
+                    $this->validateMultipartReassembledFile($destinationFilePath, $pathForErrorLogging);
+                } else {
+                    $this->debugLog('Deferring whole-file validation until terminal segment for multipart-split file: ' . $pathForErrorLogging);
+                }
+            } catch (FileValidationException $e) {
+                $isValidated = false;
+                $exception   = $e;
+            }
+        } else {
+            try {
+                $this->indexLineDto->validateFile($destinationFilePath, $pathForErrorLogging);
+            } catch (FileValidationException $e) {
+                $isValidated = false;
+                $exception   = $e;
+            }
+        }
+
+        $this->moveToNextFile($destinationFilePath);
+        if (!$isValidated) {
+            throw $exception;
+        }
+    }
+
+
+
+
+    protected function moveToNextFile(string $destinationFilePath = '')
+    {
+        $this->lastIdentifiablePath = $this->indexLineDto->getIdentifiablePath();
+ 
+        $this->extractorDto->setCurrentIndexOffset($this->wpstgIndexOffsetForNextFile);
+        $this->extractorDto->incrementTotalFilesExtracted();
+
+ 
+        $this->extractorDto->setHeaderBytesRemoved(0);
+        $this->extractorDto->setExtractorFileWrittenBytes(0);
+        $this->extractorDto->setExtractorFileReadBytes(0);
+
+        $this->extractorDto->setExtractorFileBaseBytes(0);
+
+        if (!empty($destinationFilePath) && $this->shouldDeleteValidationFileAfterMove()) {
+            $this->deleteValidationFile($destinationFilePath);
+        }
+    }
+
+    public function finishExtractingFile()
+    {
+        $this->extractingFile->setWrittenBytes($this->extractingFile->getTotalBytes());
+    }
+
+    public function getExtractingFile(): FileBeingExtracted
+    {
+        return $this->extractingFile;
+    }
+
+    public function getBackupFileOffset(): int
+    {
+        return $this->wpstgFile->ftell();
+    }
+
+    public function readBackup(int $dataLengthToRead): string
+    {
+        return $this->wpstgFile->fread($dataLengthToRead);
+    }
+
+    protected function isBigFile(): bool
+    {
+        return $this->extractingFile->getTotalBytes() > 10 * MB_IN_BYTES;
+    }
+
+
+
+
+
+    protected function maybeRemoveLastAccidentalCharFromLastExtractedFile()
+    {
+        if ($this->isValidateOnly) {
+            return;
+        }
+
+        if ($this->backupMetadata->getTotalFiles() !== $this->extractorDto->getTotalFilesExtracted()) {
+            return;
+        }
+
+        $this->removeLastCharInExtractedFile();
+    }
+
+    protected function setupExtractingFile(IndexLineInterface $backupFileIndex, string $extractFolder)
+    {
+        $this->extractingFile = new FileBeingExtracted($backupFileIndex->getIdentifiablePath(), $extractFolder, $this->pathIdentifier, $backupFileIndex);
+        $this->maybeSetSegmentBaseBytes($backupFileIndex);
+        $this->extractingFile->setWrittenBytes($this->extractorDto->getExtractorFileWrittenBytes());
+        $this->extractingFile->setReadBytes($this->extractorDto->getExtractorFileReadBytes());
+        $this->extractingFile->setHeaderBytesRemoved($this->extractorDto->getHeaderBytesRemoved());
+    }
+
+    protected function setWpstgFileOffset()
+    {
+        $this->wpstgFile->fseek($this->extractorDto->getCurrentIndexOffset());
+    }
+
+    protected function updateExtractorDto()
+    {
+        $this->extractorDto->setHeaderBytesRemoved($this->extractingFile->getHeaderBytesRemoved());
+        $this->extractorDto->setExtractorFileWrittenBytes($this->extractingFile->getWrittenBytes());
+        $this->extractorDto->setExtractorFileReadBytes($this->extractingFile->getReadBytes());
+    }
+
+
+
+
+
+
+
+
+
+    protected function maybeSetSegmentBaseBytes(IndexLineInterface $backupFileIndex)
+    {
+        if (!$backupFileIndex instanceof FileHeader || !$backupFileIndex->getIsPreviousPartRequired()) {
+            $this->extractorDto->setExtractorFileBaseBytes(0);
+            return;
+        }
+
+        if ($this->extractorDto->getExtractorFileBaseBytes() > 0 || $this->extractorDto->getExtractorFileWrittenBytes() > 0 || $this->extractorDto->getExtractorFileReadBytes() > 0) {
+            return;
+        }
+
+        $destinationFilePath = $this->extractingFile->getBackupPath();
+        if (!file_exists($destinationFilePath)) {
+            return;
+        }
+
+        clearstatcache();
+        $baseBytes = filesize($destinationFilePath);
+        $this->extractorDto->setExtractorFileBaseBytes($baseBytes === false ? 0 : (int) $baseBytes);
+    }
+
+
+
+
+
+
+    protected function throwMissingFileException(\Exception $ex, string $filePath)
+    {
+        throw new \Exception(sprintf("Following backup part missing: %s", $filePath), 0, $ex);
+    }
+
+
+
+
+
+
+
+    protected function removeLastCharInExtractedFile()
+    {
+        $destinationFilePath = $this->extractingFile->getBackupPath();
+        $fileContent         = file_get_contents($destinationFilePath);
+
+        if (empty($fileContent)) {
+            return;
+        }
+
+        if (substr($fileContent, -1) !== 'w') {
+            return;
+        }
+
+        $fileContent = substr($fileContent, 0, -1); 
+        file_put_contents($destinationFilePath, $fileContent);
+    }
+
+    protected function getExtractFolder(string $identifier): string
+    {
+        return $this->dirRestore . $this->pathIdentifier->getRelativePath($identifier);
+    }
+
+    protected function cleanExistingFile(string $identifier)
+    {
+        if ($this->isValidateOnly) {
+            return;
+        }
+
+        if ($this->extractingFile->getWrittenBytes() > 0) {
+            return;
+        }
+
+ 
+ 
+        if ($this->indexLineDto instanceof FileHeader && $this->indexLineDto->getIsPreviousPartRequired()) {
+            return;
+        }
+
+        if (file_exists($this->extractingFile->getBackupPath())) {
+ 
+            if (!unlink($this->extractingFile->getBackupPath())) {
+                throw new \RuntimeException(sprintf(__('Could not delete original file %s. Skipping restore of it...', 'wp-staging'), $this->extractingFile->getRelativePath()));
+            }
+        }
+    }
+
+    protected function deleteValidationFile(string $filePath)
+    {
+        if (!$this->isValidateOnly) {
+            return;
+        }
+
+        if (file_exists($filePath)) {
+            @unlink($filePath);
+        }
+    }
+
+    protected function isFileSkipped(string $identifiablePath, string $identifier): bool
+    {
+        if ($identifiablePath === $this->databaseBackupFile) {
+            return in_array(PartIdentifier::DATABASE_PART_IDENTIFIER, $this->excludedIdentifier);
+        }
+
+        if ($identifier === PathIdentifier::IDENTIFIER_WP_CONTENT && !in_array(PartIdentifier::DROPIN_PART_IDENTIFIER, $this->excludedIdentifier) && $this->pathIdentifier->hasDropinsFile($identifiablePath)) {
+            return false;
+        }
+
+        return in_array($identifier, $this->excludedIdentifier);
+    }
+
+    protected function isFileExtracted(IndexLineInterface $backupFileIndex, string $extractPath): bool
+    {
+        if (!file_exists($extractPath)) {
+            return false;
+        }
+
+ 
+ 
+ 
+ 
+ 
+ 
+        if ($backupFileIndex instanceof FileHeader && $this->isSegmentedFileHeader($backupFileIndex)) {
+            return false;
+        }
+
+        return $backupFileIndex->getUncompressedSize() === filesize($extractPath);
+    }
+
+
+
+
+
+
+
+
+    protected function isSegmentedFileHeader(FileHeader $fileHeader): bool
+    {
+        return $fileHeader->getIsPreviousPartRequired() || $fileHeader->getIsNextPartRequired();
+    }
+
+    protected function isCurrentSegmentedFileHeader(): bool
+    {
+        return $this->indexLineDto instanceof FileHeader && $this->isSegmentedFileHeader($this->indexLineDto);
+    }
+
+    protected function shouldDeleteValidationFileAfterMove(): bool
+    {
+        if (!$this->isValidateOnly || !$this->isCurrentSegmentedFileHeader()) {
+            return true;
+        }
+
+ 
+        $fileHeader = $this->indexLineDto;
+        return !$fileHeader->getIsNextPartRequired();
+    }
+
+
+
+
+
+
+
+
+
+
+    private function validateMultipartReassembledFile(string $filePath, string $pathForErrorLogging)
+    {
+        if (!$this->indexLineDto instanceof FileHeader) {
+            return;
+        }
+
+        $tailMeta = $this->indexLineDto->getMultipartTailMetadata();
+        if ($tailMeta === null) {
+ 
+ 
+ 
+ 
+            $this->debugLog('Multipart-split file missing whole-file integrity metadata; skipping verification: ' . $pathForErrorLogging);
+            return;
+        }
+
+        if (!file_exists($filePath)) {
+            throw new FileValidationException(sprintf('Reassembled file not found: %s.', $pathForErrorLogging));
+        }
+
+        clearstatcache();
+        $diskSize = filesize($filePath);
+        if ($tailMeta['wholeFileSize'] !== $diskSize) {
+            throw new FileValidationException(sprintf(
+                'Reassembled multipart file size mismatch for %s. Expected: %s. Actual: %s',
+                $pathForErrorLogging,
+                $this->formatSize($tailMeta['wholeFileSize'], 2),
+                $this->formatSize((int) $diskSize, 2)
+            ));
+        }
+
+        $diskCrc = hash_file(FileHeader::CRC32_CHECKSUM_ALGO, $filePath);
+        if ($diskCrc === false || $tailMeta['wholeFileCRC'] !== $diskCrc) {
+            throw new FileValidationException(sprintf(
+                'Reassembled multipart file CRC32 mismatch for %s. Expected: %s. Actual: %s',
+                $pathForErrorLogging,
+                $tailMeta['wholeFileCRC'],
+                $diskCrc === false ? '<unreadable>' : $diskCrc
+            ));
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
+    private function validateMultipartSegment(string $filePath, string $pathForErrorLogging)
+    {
+        if (!$this->indexLineDto instanceof FileHeader) {
+            return;
+        }
+
+        if (!file_exists($filePath)) {
+            throw new FileValidationException(sprintf('Multipart segment destination file not found: %s.', $pathForErrorLogging));
+        }
+
+        $segmentOffset = $this->extractorDto->getExtractorFileBaseBytes();
+        $segmentSize   = $this->indexLineDto->getUncompressedSize();
+
+        clearstatcache();
+        $diskSize = filesize($filePath);
+        if ($diskSize === false || $diskSize < $segmentOffset + $segmentSize) {
+            throw new FileValidationException(sprintf(
+                'Multipart segment size mismatch for %s. Expected at least: %s. Actual: %s',
+                $pathForErrorLogging,
+                $this->formatSize($segmentOffset + $segmentSize, 2),
+                $diskSize === false ? '<unreadable>' : $this->formatSize((int) $diskSize, 2)
+            ));
+        }
+
+        $handle = fopen($filePath, 'rb');
+        if ($handle === false) {
+            throw new FileValidationException(sprintf('Could not read multipart segment for %s.', $pathForErrorLogging));
+        }
+
+        if (fseek($handle, $segmentOffset) !== 0) {
+            fclose($handle);
+            throw new FileValidationException(sprintf('Could not seek to multipart segment for %s.', $pathForErrorLogging));
+        }
+
+        $ctx       = hash_init(FileHeader::CRC32_CHECKSUM_ALGO);
+        $remaining = $segmentSize;
+        while ($remaining > 0) {
+            $chunk = fread($handle, (int) min(512 * KB_IN_BYTES, $remaining));
+            if ($chunk === false || $chunk === '') {
+                fclose($handle);
+                throw new FileValidationException(sprintf('Could not read complete multipart segment for %s.', $pathForErrorLogging));
+            }
+
+            hash_update($ctx, $chunk);
+            $remaining -= strlen($chunk);
+        }
+
+        fclose($handle);
+
+        $segmentCrc = hash_final($ctx);
+        if ($segmentCrc !== $this->indexLineDto->getCrc32Checksum()) {
+            throw new FileValidationException(sprintf(
+                'Multipart segment CRC32 mismatch for %s. Expected: %s. Actual: %s',
+                $pathForErrorLogging,
+                $this->indexLineDto->getCrc32Checksum(),
+                $segmentCrc
+            ));
+        }
+    }
+
+
+
+
+
+
+
+    public function maybeRepairMultipleHeadersIssue(string $dataToFix): string
+    {
+
+
+
+        $fileHeader = $this->indexLineDto;
+ 
+        if (strpos($dataToFix, $fileHeader->getFileHeader()) !== false) {
+            $count = substr_count($dataToFix, $fileHeader->getFileHeader());
+            $this->extractingFile->addHeaderBytesRemoved($count * ($fileHeader->getDynamicHeaderLength() + 1));
+
+            return str_replace($fileHeader->getFileHeader() . "\n", '', $dataToFix);
+        }
+
+ 
+        if (!$fileHeader->getIsCompressed()) {
+            return $dataToFix;
+        }
+
+
+
+
+
+        if (strpos($dataToFix, $fileHeader->getUncompressedFileHeader()) !== false) {
+            $count = substr_count($dataToFix, $fileHeader->getUncompressedFileHeader());
+            $this->extractingFile->addHeaderBytesRemoved($count * ($fileHeader->getDynamicHeaderLength() + 1));
+
+            return str_replace($fileHeader->getUncompressedFileHeader() . "\n", '', $dataToFix);
+        }
+
+        return $dataToFix;
+    }
+
+
+
+
+
+
+
+
+    private function filePutContents(string $filePath, string $content): bool
+    {
+        if ($fp = fopen($filePath, 'wb')) {
+            $bytes = fwrite($fp, $content);
+            fclose($fp);
+            $fp = null; 
+            return $bytes;
+        }
+
+        return false;
+    }
+
+    private function createDirectory(string $directory): bool
+    {
+        if (file_exists($directory)) {
+            return @is_dir($directory);
+        }
+
+        if (!is_dir($directory) && !mkdir($directory, $this->defaultDirectoryOctal, true)) {
+            return false;
+        }
+
+        return true;
+    }
+}

@@ -1,0 +1,180 @@
+<?php
+
+namespace WPStaging\Framework\CloningProcess\Data;
+
+use WPStaging\Backend\Modules\Jobs\Exceptions\FatalException;
+use WPStaging\Core\Utils\Logger;
+use WPStaging\Framework\Filesystem\Filesystem;
+use WPStaging\Framework\Traits\WithUnfinishedCloneWpConfigGuard;
+
+class CopyWpConfig extends FileCloningService
+{
+    use WithUnfinishedCloneWpConfigGuard;
+
+
+
+
+    protected $filesystem;
+
+
+
+
+
+
+    public function __construct(Filesystem $filesystem)
+    {
+        $this->filesystem = $filesystem;
+    }
+
+
+
+
+
+
+    protected function internalExecute()
+    {
+        $this->log("Copy wp-config.php file");
+
+        if ($this->isExcludedWpConfig()) {
+            $this->log("Excluded: wp-config.php is excluded by filter");
+            return true;
+        }
+
+        $dir = trailingslashit(dirname($this->getWordPressRootPath()));
+
+        $source = $dir . 'wp-config.php';
+
+        $destination = $this->dto->getDestinationDir() . 'wp-config.php';
+
+ 
+        if ($this->isValidWpConfig($destination)) {
+            $this->log("Skipping: wp-config.php already exists in {$destination}");
+            return true;
+        }
+
+        $rootWpConfig  = $this->getWordPressRootPath() . 'wp-config.php';
+        $symlinkTarget = (string)realpath($rootWpConfig);
+        if (is_link($rootWpConfig) && $this->isValidWpConfig($symlinkTarget)) {
+            if (!$this->copyWpConfigWithUnfinishedCloneGuard($this->filesystem, $symlinkTarget, $destination)) {
+                throw new FatalException("Could not copy wp-config.php from symlink target {$symlinkTarget} to {$destination}");
+            }
+
+            $this->log("Successfully copied wp-config.php file from symlink target {$symlinkTarget} to {$destination}");
+            return true;
+        }
+
+ 
+        if ($this->isValidWpConfig($source)) {
+ 
+            if (!$this->copyWpConfigWithUnfinishedCloneGuard($this->filesystem, $source, $destination)) {
+                throw new FatalException("Could not copy wp-config.php from {$source} to {$destination}");
+            }
+
+            $this->log("Successfully copied wp-config.php file from source {$source} to {$destination}");
+            return true;
+        }
+
+ 
+        $source = WPSTG_RESOURCES_DIR . "helpers/wp-config.php";
+
+        $this->log("Copy default wp-config.php file from source {$source} to {$destination}");
+
+        if (!$this->copyWpConfigWithUnfinishedCloneGuard($this->filesystem, $source, $destination)) {
+            throw new FatalException("Could not copy wp-config.php to " . $destination);
+        }
+
+        if (!$this->alterWpConfig($destination)) {
+            throw new FatalException("Can not alter db credentials in wp-config.php");
+        }
+
+        return true;
+    }
+
+
+
+
+
+    protected function getWordPressRootPath()
+    {
+        return ABSPATH;
+    }
+
+
+
+
+
+
+    protected function alterWpConfig($source)
+    {
+        if (($content = file_get_contents($source)) === false) {
+            return false;
+        }
+
+        $search = $this->getTextDatabaseConstantsMustFollow($content);
+
+        $replace = $search . "\r\n\r\n// ** MySQL settings ** //\r\n
+define( 'DB_NAME', '" . DB_NAME . "' );\r\n
+/** MySQL database username */\r\n
+define( 'DB_USER', '" . DB_USER . "' );\r\n
+/** MySQL database password */\r\n
+define( 'DB_PASSWORD', '" . DB_PASSWORD . "' );\r\n
+/** MySQL hostname */\r\n
+define( 'DB_HOST', '" . DB_HOST . "' );\r\n
+/** Database Charset to use in creating database tables. */\r\n
+define( 'DB_CHARSET', '" . DB_CHARSET . "' );\r\n
+/** The Database Collate type. Don't change this if in doubt. */\r\n
+define( 'DB_COLLATE', '" . (defined('DB_COLLATE') ? DB_COLLATE : '') . "' );\r\n";
+
+        $content = $this->normalizeFileContent($content);
+        $content = str_replace($search, $replace, $content, $replacements);
+
+        if ($replacements === 0) {
+            return false;
+        }
+
+        if ($this->filesystem->create($source, $content) === false) {
+            $this->log("Can't save wp-config.php", Logger::TYPE_ERROR);
+
+            return false;
+        }
+
+        return true;
+    }
+
+
+
+
+
+
+    protected function isValidWpConfig($source)
+    {
+        if (!is_file($source) && !is_link($source)) {
+            $this->log("Can not find {$source}", Logger::TYPE_INFO);
+            return false;
+        }
+
+
+        if (($content = file_get_contents($source)) === false) {
+            $this->log("Can not read {$source}", Logger::TYPE_INFO);
+            return false;
+        }
+
+ 
+        $constants = [
+            'DB_NAME',
+            'DB_USER',
+            'DB_PASSWORD',
+            'DB_HOST',
+        ];
+        foreach ($constants as $constant) {
+            preg_match($this->getDefineRegex($constant), $content, $matches);
+
+            if (empty($matches[1])) {
+                $this->log("Can not find " . $constant . " in wp-config.php", Logger::TYPE_INFO);
+                return false;
+            }
+        }
+
+        return true;
+    }
+}

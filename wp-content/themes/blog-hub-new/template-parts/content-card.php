@@ -13,10 +13,12 @@ $primary_cat = ! empty( $cats ) ? $cats[0] : null;
 $reading_min = blog_hub_reading_time( get_the_ID() );
 ?>
 <article <?php post_class( 'bh-post-card' ); ?>>
-	<div class="bh-post-card__media">
+	<div class="bh-post-card__media<?php echo has_post_thumbnail() ? '' : ' bh-post-card__media--empty'; ?>">
 		<a href="<?php the_permalink(); ?>">
 			<?php if ( has_post_thumbnail() ) : ?>
 				<?php the_post_thumbnail( 'medium_large' ); ?>
+			<?php else : ?>
+				<i class="fa-regular fa-image" aria-hidden="true"></i>
 			<?php endif; ?>
 		</a>
 	</div>

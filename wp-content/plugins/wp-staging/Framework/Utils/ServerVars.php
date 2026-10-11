@@ -1,0 +1,75 @@
+<?php
+
+namespace WPStaging\Framework\Utils;
+
+use WPStaging\Framework\Utils\Sanitize as UtilsSanitize;
+
+class ServerVars
+{
+ 
+    private $sanitize;
+
+ 
+    private $serverSoftware = null;
+
+    public function __construct(UtilsSanitize $sanitize)
+    {
+        $this->sanitize = $sanitize;
+    }
+
+ 
+    public function getServerSoftware()
+    {
+        if ($this->serverSoftware === null) {
+            $this->serverSoftware = isset($_SERVER['SERVER_SOFTWARE']) ? $this->sanitize->sanitizeString($_SERVER['SERVER_SOFTWARE']) : '';
+        }
+
+        return $this->serverSoftware;
+    }
+
+
+
+
+    public function setTimeLimit($seconds = 0)
+    {
+        // phpcs:ignore PHPCompatibility.IniDirectives.RemovedIniDirectives.safe_modeDeprecatedRemoved
+        if (!in_array("set_time_limit", explode(',', ini_get("disable_functions")))) {
+            set_time_limit($seconds);
+        }
+    }
+
+
+
+
+    public function isApache()
+    {
+        return stripos($this->getServerSoftware(), 'apache') === 0;
+    }
+
+
+
+
+    public function isLitespeed()
+    {
+        return stripos($this->getServerSoftware(), 'LiteSpeed') === 0;
+    }
+
+
+
+
+    public function isNginx()
+    {
+        return stripos($this->getServerSoftware(), 'nginx') !== false && stripos($this->getServerSoftware(), 'litespeed') === false;
+    }
+
+
+
+
+    public function isFunctionDisabled(string $functionName): bool {
+        $disableFunctions = array_map(function ($input) {
+            return trim($input);
+        }, explode(',', ini_get('disable_functions')));
+
+        return in_array($functionName, $disableFunctions);
+    }
+}

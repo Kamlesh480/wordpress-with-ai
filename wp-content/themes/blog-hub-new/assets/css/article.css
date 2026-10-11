@@ -654,16 +654,19 @@
 	position: relative;
 	aspect-ratio: 16 / 10;
 	background: var(--cream-100);
+	overflow: hidden;
+}
+
+.bh-related-card__media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.bh-related-card__media--empty {
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	border-bottom: var(--border-width-1) dashed var(--rule-light);
 	color: var(--text-muted);
 	font-size: 12px;
-	overflow: hidden;
 }
-
-.bh-related-card__media img { width: 100%; height: 100%; object-fit: cover; }
 
 .bh-related-card__body {
 	padding: var(--space-5);

@@ -1,0 +1,37 @@
+<?php
+
+namespace WPStaging\Staging\Ajax;
+
+use WPStaging\Core\WPStaging;
+use WPStaging\Framework\Component\AbstractTemplateComponent;
+use WPStaging\Framework\Traits\MemoryExhaustTrait;
+use WPStaging\Staging\Jobs\StagingSiteDelete;
+use WPStaging\Framework\Traits\JobResponseTrait;
+
+class Delete extends AbstractTemplateComponent
+{
+    use JobResponseTrait;
+    use MemoryExhaustTrait;
+
+
+
+
+    const WPSTG_REQUEST = 'wpstg_delete';
+
+
+
+
+    public function ajaxDelete()
+    {
+        if (!$this->canRenderAjax()) {
+            return;
+        }
+
+        $tmpFileToDelete = $this->getMemoryExhaustErrorTmpFile(self::WPSTG_REQUEST);
+
+        $jobDelete = WPStaging::make(StagingSiteDelete::class); // @phpstan-ignore-line
+        $jobDelete->setMemoryExhaustErrorTmpFile($tmpFileToDelete); // @phpstan-ignore-line
+
+        $this->sendJobResponse($jobDelete);
+    }
+}

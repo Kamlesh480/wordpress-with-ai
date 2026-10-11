@@ -23,9 +23,11 @@ if ( empty( $related ) ) {
 			<?php foreach ( $related as $related_post ) : ?>
 				<?php $related_cats = get_the_category( $related_post->ID ); ?>
 				<article class="bh-related-card">
-					<div class="bh-related-card__media">
+					<div class="bh-related-card__media<?php echo has_post_thumbnail( $related_post->ID ) ? '' : ' bh-related-card__media--empty'; ?>">
 						<?php if ( has_post_thumbnail( $related_post->ID ) ) : ?>
 							<?php echo get_the_post_thumbnail( $related_post->ID, 'medium_large' ); ?>
+						<?php else : ?>
+							<i class="fa-regular fa-image" aria-hidden="true"></i>
 						<?php endif; ?>
 					</div>
 					<div class="bh-related-card__body">

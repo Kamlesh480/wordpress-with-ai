@@ -1,0 +1,152 @@
+<?php
+
+namespace WPStaging\Staging\Ajax;
+
+use WPStaging\Core\WPStaging;
+use WPStaging\Framework\Facades\Sanitize;
+use WPStaging\Framework\Filesystem\Scanning\ScanConst;
+use WPStaging\Framework\Job\Ajax\PrepareJob;
+use WPStaging\Framework\Job\Exception\ProcessLockedException;
+use WPStaging\Staging\Dto\Job\StagingSiteJobsDataDto;
+use WPStaging\Staging\Service\StagingEngine;
+use WPStaging\Staging\Sites;
+
+abstract class AbstractAjaxPrepare extends PrepareJob
+{
+ 
+    protected $postDataKey = '';
+
+ 
+    protected $jobDataDto;
+
+
+
+
+
+    public function ajaxPrepare($data)
+    {
+        if (!$this->auth->isAuthenticatedRequest()) {
+            wp_send_json_error(null, 401);
+        }
+
+        if (!WPStaging::make(StagingEngine::class)->isNextGenEnabled()) {
+            wp_send_json_error(esc_html__('The Next-Gen engine is temporarily unavailable. Please use the Classic engine.', 'wp-staging'), 403);
+        }
+
+        try {
+            $this->processLock->lockProcess();
+        } catch (ProcessLockedException $e) {
+            wp_send_json_error($e->getMessage(), $e->getCode());
+        }
+
+        $response = $this->prepare($data);
+
+        if ($response instanceof \WP_Error) {
+            wp_send_json_error($response->get_error_message(), $response->get_error_code());
+        }
+
+        wp_send_json_success();
+    }
+
+
+
+
+
+    public function prepare($data = null)
+    {
+        if (empty($this->postDataKey)) {
+            return new \WP_Error(400, "Invalid request. Missing 'postDataKey' in Ajax Prepare class.");
+        }
+
+        if (empty($data) && array_key_exists($this->postDataKey, $_POST)) {
+            $data = $this->postDataSanitization();
+        }
+
+        try {
+            $sanitizedData = $this->setupInitialJob($data);
+        } catch (\Exception $e) {
+            return new \WP_Error(400, $e->getMessage());
+        }
+
+        $this->deleteSseCacheFiles();
+
+        return $sanitizedData;
+    }
+
+
+
+
+
+    public function validateAndSanitizeData($data): array
+    {
+        if (empty($data)) {
+            $data = [];
+        }
+
+ 
+        foreach ($data as $key => $value) {
+            if ($value === '' || $value === null) {
+                unset($data[$key]);
+            }
+        }
+
+        $defaults = $this->getDefaults();
+
+        $data = wp_parse_args($data, $defaults);
+
+ 
+        $data = array_intersect_key($data, $defaults);
+
+ 
+        foreach ($defaults as $expectedKey => $value) {
+            if (!array_key_exists($expectedKey, $data)) {
+                throw new \UnexpectedValueException("Invalid request. Missing '$expectedKey'.");
+            }
+        }
+
+        $data = $this->additionalSanitization($data);
+
+        return $data;
+    }
+
+    abstract protected function getDefaults(): array;
+
+    abstract protected function postDataSanitization(): array;
+
+    abstract protected function additionalSanitization(array $data): array;
+
+    protected function parseAndSanitizeTables(string $tables): array
+    {
+        $tables = $tables === '' ? [] : explode(ScanConst::DIRECTORIES_SEPARATOR, $tables);
+
+        return array_map('sanitize_text_field', $tables);
+    }
+
+    protected function parseAndSanitizeDirectories(string $directories): array
+    {
+ 
+ 
+        $directories = $directories === '' ? [] : explode(ScanConst::DIRECTORIES_SEPARATOR, wpstg_urldecode(Sanitize::sanitizeString($directories)));
+
+        return array_map('sanitize_text_field', $directories);
+    }
+
+    protected function populateJobDataDtoByCloneId(string $cloneId)
+    {
+        $stagingSite = WPStaging::make(Sites::class)->getStagingSiteDtoByCloneId($cloneId);
+        $this->jobDataDto->setStagingSite($stagingSite);
+        $this->jobDataDto->setCloneId($cloneId);
+        $this->jobDataDto->setStagingSiteUrl($stagingSite->getUrl());
+        $this->jobDataDto->setStagingSitePath($stagingSite->getPath());
+        $this->jobDataDto->setDatabasePrefix($stagingSite->getUsedPrefix());
+        $this->jobDataDto->setIsExternalDatabase($stagingSite->getIsExternalDatabase());
+        $this->jobDataDto->setUseCustomDatabase($stagingSite->getIsCustomDatabaseConnection());
+        $this->jobDataDto->setDatabaseServer($stagingSite->getDatabaseServer());
+        $this->jobDataDto->setDatabaseName($stagingSite->getDatabaseDatabase());
+        $this->jobDataDto->setDatabaseUser($stagingSite->getDatabaseUser());
+        $this->jobDataDto->setDatabasePassword($stagingSite->getDatabasePassword());
+        $this->jobDataDto->setDatabaseSsl($stagingSite->getDatabaseSsl());
+    }
+
+    abstract protected function prepareStagingSiteDto();
+}
