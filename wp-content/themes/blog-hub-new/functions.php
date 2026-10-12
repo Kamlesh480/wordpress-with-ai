@@ -259,6 +259,26 @@ function blog_hub_author_expertise( $user_id ) {
 	return $tags ? array_filter( array_map( 'trim', explode( ',', $tags ) ) ) : array();
 }
 
+/**
+ * Short "at a glance" facts shown in the author sidebar (e.g. a
+ * qualification, a certification, a coverage area, years of experience) —
+ * one per line. Optional; the sidebar card simply shows fewer rows if unset.
+ */
+function blog_hub_author_highlights( $user_id ) {
+	$raw = get_user_meta( $user_id, 'blog_hub_author_highlights', true );
+	if ( ! $raw ) {
+		return array();
+	}
+	return array_values( array_filter( array_map( 'trim', explode( "\n", $raw ) ) ) );
+}
+
+/**
+ * Optional link for the "Request a Quote" button in the author sidebar.
+ */
+function blog_hub_author_cta_url( $user_id ) {
+	return get_user_meta( $user_id, 'blog_hub_author_cta_url', true );
+}
+
 function blog_hub_author_profile_fields( $user ) {
 	?>
 	<h2><?php esc_html_e( 'Blog Hub Author Profile', 'blog-hub' ); ?></h2>
@@ -294,6 +314,21 @@ function blog_hub_author_profile_fields( $user ) {
 				<p class="description"><?php esc_html_e( 'Comma-separated, e.g. "RCC Hume Pipes, Manhole Systems, IS Code Compliance"', 'blog-hub' ); ?></p>
 			</td>
 		</tr>
+		<tr>
+			<th><label for="blog_hub_author_highlights"><?php esc_html_e( '"At a glance" facts', 'blog-hub' ); ?></label></th>
+			<td>
+				<textarea name="blog_hub_author_highlights" id="blog_hub_author_highlights" class="large-text" rows="4"><?php echo esc_textarea( get_user_meta( $user->ID, 'blog_hub_author_highlights', true ) ); ?></textarea>
+				<p class="description"><?php esc_html_e( 'One short fact per line, e.g. "Diploma in Civil Engineering". Shown as a bulleted list in the author sidebar.', 'blog-hub' ); ?></p>
+			</td>
+		</tr>
+		<tr>
+			<th><label for="blog_hub_author_cta_url"><?php esc_html_e( '"Request a Quote" button link', 'blog-hub' ); ?></label></th>
+			<td>
+				<input type="url" name="blog_hub_author_cta_url" id="blog_hub_author_cta_url" class="regular-text"
+					value="<?php echo esc_attr( blog_hub_author_cta_url( $user->ID ) ); ?>">
+				<p class="description"><?php esc_html_e( 'Leave blank to hide the button.', 'blog-hub' ); ?></p>
+			</td>
+		</tr>
 	</table>
 	<?php
 }
@@ -312,6 +347,12 @@ function blog_hub_save_author_profile_fields( $user_id ) {
 	}
 	if ( isset( $_POST['blog_hub_author_linkedin'] ) ) {
 		update_user_meta( $user_id, 'blog_hub_author_linkedin', esc_url_raw( wp_unslash( $_POST['blog_hub_author_linkedin'] ) ) );
+	}
+	if ( isset( $_POST['blog_hub_author_highlights'] ) ) {
+		update_user_meta( $user_id, 'blog_hub_author_highlights', sanitize_textarea_field( wp_unslash( $_POST['blog_hub_author_highlights'] ) ) );
+	}
+	if ( isset( $_POST['blog_hub_author_cta_url'] ) ) {
+		update_user_meta( $user_id, 'blog_hub_author_cta_url', esc_url_raw( wp_unslash( $_POST['blog_hub_author_cta_url'] ) ) );
 	}
 }
 add_action( 'personal_options_update', 'blog_hub_save_author_profile_fields' );
@@ -500,6 +541,35 @@ function blog_hub_output_schema() {
 add_action( 'wp_head', 'blog_hub_output_schema' );
 
 /**
+ * Only allow a Google Maps <iframe> embed (the exact markup Google's own
+ * "Share > Embed a map" panel outputs) — admin-only input (Customizer
+ * requires manage_options already), but still worth constraining to the
+ * one known-safe shape rather than accepting arbitrary HTML/script.
+ */
+function blog_hub_sanitize_map_embed( $input ) {
+	if ( ! $input ) {
+		return '';
+	}
+	if ( ! preg_match( '/^<iframe\s[^>]*src=["\']https:\/\/www\.google\.com\/maps\/embed[^"\']*["\'][^>]*><\/iframe>$/i', trim( $input ) ) ) {
+		return '';
+	}
+	return wp_kses(
+		$input,
+		array(
+			'iframe' => array(
+				'src'             => true,
+				'width'           => true,
+				'height'          => true,
+				'style'           => true,
+				'allowfullscreen' => true,
+				'loading'         => true,
+				'referrerpolicy'  => true,
+			),
+		)
+	);
+}
+
+/**
  * Optional site-wide contact details (top bar, footer) via the Customizer.
  * Stored as theme_mods — standard WordPress mechanism, automatically scoped
  * to whichever theme is active, nothing to migrate if this theme is removed.
@@ -533,6 +603,17 @@ function blog_hub_customize_register( $wp_customize ) {
 		)
 	);
 
+	$wp_customize->add_setting( 'blog_hub_contact_phone_2', array( 'default' => '' ) );
+	$wp_customize->add_control(
+		'blog_hub_contact_phone_2',
+		array(
+			'label'       => __( 'Second contact phone (optional)', 'blog-hub' ),
+			'description' => __( 'Shown alongside the first phone number in the top bar.', 'blog-hub' ),
+			'section'     => 'blog_hub_contact',
+			'type'        => 'text',
+		)
+	);
+
 	$wp_customize->add_setting( 'blog_hub_address', array( 'default' => '' ) );
 	$wp_customize->add_control(
 		'blog_hub_address',
@@ -540,6 +621,23 @@ function blog_hub_customize_register( $wp_customize ) {
 			'label'   => __( 'Address (shown in footer)', 'blog-hub' ),
 			'section' => 'blog_hub_contact',
 			'type'    => 'textarea',
+		)
+	);
+
+	$wp_customize->add_setting(
+		'blog_hub_map_embed',
+		array(
+			'default'           => '',
+			'sanitize_callback' => 'blog_hub_sanitize_map_embed',
+		)
+	);
+	$wp_customize->add_control(
+		'blog_hub_map_embed',
+		array(
+			'label'       => __( 'Map embed (footer "Find Us")', 'blog-hub' ),
+			'description' => __( 'Paste a Google Maps embed code (the <iframe ...> from Maps\' Share > Embed a map). Leave blank to hide the "Find Us" footer column.', 'blog-hub' ),
+			'section'     => 'blog_hub_contact',
+			'type'        => 'textarea',
 		)
 	);
 
@@ -591,6 +689,17 @@ function blog_hub_customize_register( $wp_customize ) {
 			'description' => __( 'Where the email signup form on the front page submits to (your email service provider). Leave blank to hide the newsletter section.', 'blog-hub' ),
 			'section'     => 'blog_hub_front_page',
 			'type'        => 'url',
+		)
+	);
+
+	$wp_customize->add_setting( 'blog_hub_links_line', array( 'default' => '', 'sanitize_callback' => 'wp_kses_post' ) );
+	$wp_customize->add_control(
+		'blog_hub_links_line',
+		array(
+			'label'       => __( 'Secondary links line (basic HTML links allowed)', 'blog-hub' ),
+			'description' => __( 'A short line of text with links shown near the bottom of the blog listing, e.g. "Explore our products, learn about us, or contact our team." Leave blank to hide it.', 'blog-hub' ),
+			'section'     => 'blog_hub_front_page',
+			'type'        => 'textarea',
 		)
 	);
 
@@ -678,3 +787,48 @@ function blog_hub_customize_register( $wp_customize ) {
 	);
 }
 add_action( 'customize_register', 'blog_hub_customize_register' );
+
+/**
+ * Icon-only social links menu: replaces each menu item's visible text with
+ * a Font Awesome icon matched from the link's domain (facebook.com,
+ * x.com/twitter.com, instagram.com, linkedin.com, youtube.com, etc.),
+ * falling back to a generic link icon for anything unrecognized. The menu
+ * item's title stays available to screen readers via footer.php's
+ * link_before/link_after wrapper — only the visible label changes here.
+ */
+function blog_hub_social_menu_icon( $title, $item, $args ) {
+	if ( empty( $args->theme_location ) || 'social' !== $args->theme_location ) {
+		return $title;
+	}
+
+	$url  = $item->url;
+	$host = strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) );
+
+	$icon_map = array(
+		'facebook.com'  => 'fa-brands fa-facebook-f',
+		'x.com'         => 'fa-brands fa-x-twitter',
+		'twitter.com'   => 'fa-brands fa-x-twitter',
+		'instagram.com' => 'fa-brands fa-instagram',
+		'linkedin.com'  => 'fa-brands fa-linkedin-in',
+		'youtube.com'   => 'fa-brands fa-youtube',
+		'pinterest.com' => 'fa-brands fa-pinterest-p',
+		'tiktok.com'    => 'fa-brands fa-tiktok',
+		'wa.me'         => 'fa-brands fa-whatsapp',
+		'whatsapp.com'  => 'fa-brands fa-whatsapp',
+	);
+
+	$icon_class = 'fa-solid fa-link';
+	foreach ( $icon_map as $domain => $class ) {
+		if ( false !== strpos( $host, $domain ) ) {
+			$icon_class = $class;
+			break;
+		}
+	}
+
+	// Icon stays visible; the real link text moves into a screen-reader-only
+	// span (footer.php's link_before/link_after wraps icon menus generally,
+	// but the social menu needs the icon itself to stay visible — handled
+	// here instead so this filter only runs for the 'social' location).
+	return '<i class="' . esc_attr( $icon_class ) . '" aria-hidden="true"></i><span class="screen-reader-text">' . esc_html( $title ) . '</span>';
+}
+add_filter( 'nav_menu_item_title', 'blog_hub_social_menu_icon', 10, 3 );

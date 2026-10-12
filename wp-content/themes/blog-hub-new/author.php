@@ -11,11 +11,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 get_header();
 
 $author_id   = get_queried_object_id();
+$author_name = get_the_author_meta( 'display_name', $author_id );
 $bio         = blog_hub_author_bio( $author_id );
 $title       = blog_hub_author_title( $author_id );
 $quote       = blog_hub_author_quote( $author_id );
 $linkedin    = blog_hub_author_linkedin( $author_id );
 $expertise   = blog_hub_author_expertise( $author_id );
+$highlights  = blog_hub_author_highlights( $author_id );
+$cta_url     = blog_hub_author_cta_url( $author_id );
 $website     = get_the_author_meta( 'user_url', $author_id );
 $email       = get_the_author_meta( 'user_email', $author_id );
 $phone       = get_theme_mod( 'blog_hub_contact_phone', '' );
@@ -23,6 +26,8 @@ $post_count  = count_user_posts( $author_id, 'post' );
 
 global $wp_query;
 ?>
+
+<?php get_template_part( 'template-parts/breadcrumbs' ); ?>
 
 <section class="bh-author-header">
 	<div class="bh-container bh-author-header__grid">
@@ -75,15 +80,40 @@ global $wp_query;
 			</div>
 
 			<aside class="bh-author-glance">
-				<h3><?php esc_html_e( 'Get in Touch', 'blog-hub' ); ?></h3>
-				<?php if ( $email ) : ?>
-					<a href="mailto:<?php echo esc_attr( $email ); ?>"><i class="fa-regular fa-envelope" aria-hidden="true"></i><?php echo esc_html( $email ); ?></a>
+				<h3>
+					<?php
+					/* translators: %s: author's display name. */
+					echo esc_html( sprintf( __( '%s at a Glance', 'blog-hub' ), $author_name ) );
+					?>
+				</h3>
+				<?php if ( ! empty( $highlights ) ) : ?>
+					<ul class="bh-author-glance__highlights">
+						<?php foreach ( $highlights as $fact ) : ?>
+							<li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span><?php echo esc_html( $fact ); ?></span></li>
+						<?php endforeach; ?>
+					</ul>
 				<?php endif; ?>
-				<?php if ( $phone ) : ?>
-					<a href="tel:<?php echo esc_attr( preg_replace( '/[^0-9+]/', '', $phone ) ); ?>"><i class="fa-solid fa-phone" aria-hidden="true"></i><?php echo esc_html( $phone ); ?></a>
+				<?php if ( $email || $phone || $website ) : ?>
+					<div class="bh-author-glance__contact">
+						<span class="bh-author-glance__contact-label">
+							<?php
+							/* translators: %s: author's display name. */
+							echo esc_html( sprintf( __( 'Talk to %s', 'blog-hub' ), $author_name ) );
+							?>
+						</span>
+						<?php if ( $phone ) : ?>
+							<a href="tel:<?php echo esc_attr( preg_replace( '/[^0-9+]/', '', $phone ) ); ?>"><i class="fa-solid fa-phone" aria-hidden="true"></i><?php echo esc_html( $phone ); ?></a>
+						<?php endif; ?>
+						<?php if ( $email ) : ?>
+							<a href="mailto:<?php echo esc_attr( $email ); ?>"><i class="fa-regular fa-envelope" aria-hidden="true"></i><?php echo esc_html( $email ); ?></a>
+						<?php endif; ?>
+						<?php if ( $website ) : ?>
+							<a href="<?php echo esc_url( $website ); ?>" rel="nofollow"><i class="fa-solid fa-globe" aria-hidden="true"></i><?php echo esc_html( $website ); ?></a>
+						<?php endif; ?>
+					</div>
 				<?php endif; ?>
-				<?php if ( $website ) : ?>
-					<a href="<?php echo esc_url( $website ); ?>" rel="nofollow"><i class="fa-solid fa-globe" aria-hidden="true"></i><?php echo esc_html( $website ); ?></a>
+				<?php if ( $cta_url ) : ?>
+					<a class="bh-btn bh-author-glance__cta" href="<?php echo esc_url( $cta_url ); ?>"><?php esc_html_e( 'Request a Quote', 'blog-hub' ); ?></a>
 				<?php endif; ?>
 			</aside>
 		</div>

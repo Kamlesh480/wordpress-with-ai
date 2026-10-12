@@ -21,9 +21,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 <?php wp_body_open(); ?>
 
 <?php
-$bh_contact_email = get_theme_mod( 'blog_hub_contact_email', '' );
-$bh_contact_phone  = get_theme_mod( 'blog_hub_contact_phone', '' );
-if ( $bh_contact_email || $bh_contact_phone ) :
+$bh_contact_email   = get_theme_mod( 'blog_hub_contact_email', '' );
+$bh_contact_phone   = get_theme_mod( 'blog_hub_contact_phone', '' );
+$bh_contact_phone_2 = get_theme_mod( 'blog_hub_contact_phone_2', '' );
+if ( $bh_contact_email || $bh_contact_phone || $bh_contact_phone_2 ) :
 	?>
 	<header class="bh-topbar">
 		<div class="bh-container bh-topbar__inner">
@@ -33,12 +34,20 @@ if ( $bh_contact_email || $bh_contact_phone ) :
 					<?php echo esc_html( $bh_contact_email ); ?>
 				</a>
 			<?php endif; ?>
-			<?php if ( $bh_contact_phone ) : ?>
+			<?php if ( $bh_contact_phone || $bh_contact_phone_2 ) : ?>
 				<div class="bh-topbar__links">
-					<a href="tel:<?php echo esc_attr( preg_replace( '/[^0-9+]/', '', $bh_contact_phone ) ); ?>">
-						<i class="fa-solid fa-phone" aria-hidden="true"></i>
-						<?php echo esc_html( $bh_contact_phone ); ?>
-					</a>
+					<?php if ( $bh_contact_phone ) : ?>
+						<a href="tel:<?php echo esc_attr( preg_replace( '/[^0-9+]/', '', $bh_contact_phone ) ); ?>">
+							<i class="fa-solid fa-phone" aria-hidden="true"></i>
+							<?php echo esc_html( $bh_contact_phone ); ?>
+						</a>
+					<?php endif; ?>
+					<?php if ( $bh_contact_phone_2 ) : ?>
+						<a href="tel:<?php echo esc_attr( preg_replace( '/[^0-9+]/', '', $bh_contact_phone_2 ) ); ?>">
+							<i class="fa-solid fa-phone" aria-hidden="true"></i>
+							<?php echo esc_html( $bh_contact_phone_2 ); ?>
+						</a>
+					<?php endif; ?>
 				</div>
 			<?php endif; ?>
 		</div>

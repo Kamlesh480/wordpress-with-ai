@@ -211,6 +211,48 @@
 	width: 16px;
 }
 
+.bh-author-glance__highlights {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	gap: var(--space-3);
+	font-size: 14px;
+	color: var(--text-body);
+}
+
+.bh-author-glance__highlights li {
+	display: flex;
+	gap: var(--space-3);
+}
+
+.bh-author-glance__highlights i {
+	color: var(--gold-500);
+	width: 16px;
+	margin-top: 3px;
+}
+
+.bh-author-glance__contact {
+	border-top: 1px solid var(--border-default);
+	padding-top: var(--space-4);
+	display: grid;
+	gap: var(--space-3);
+}
+
+.bh-author-glance__contact-label {
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 1.82px;
+	color: var(--text-muted);
+	text-transform: uppercase;
+}
+
+.bh-author-glance__cta {
+	margin-top: var(--space-2);
+	justify-content: center;
+	text-align: center;
+}
+
 @media (max-width: 700px) {
 	.bh-author-header__grid,
 	.bh-author-about__grid {

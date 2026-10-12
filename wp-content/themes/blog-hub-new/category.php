@@ -14,6 +14,8 @@ global $wp_query;
 $article_count = (int) $wp_query->found_posts;
 ?>
 
+<?php get_template_part( 'template-parts/breadcrumbs' ); ?>
+
 <header class="bh-category-header">
 	<div class="bh-container bh-category-header__inner">
 		<div class="bh-category-header__copy">

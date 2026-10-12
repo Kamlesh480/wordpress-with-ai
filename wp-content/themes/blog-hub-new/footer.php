@@ -11,9 +11,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$bh_address = get_theme_mod( 'blog_hub_address', '' );
-$bh_email   = get_theme_mod( 'blog_hub_contact_email', '' );
-$bh_phone   = get_theme_mod( 'blog_hub_contact_phone', '' );
+$bh_address   = get_theme_mod( 'blog_hub_address', '' );
+$bh_email     = get_theme_mod( 'blog_hub_contact_email', '' );
+$bh_phone     = get_theme_mod( 'blog_hub_contact_phone', '' );
+$bh_map_embed = get_theme_mod( 'blog_hub_map_embed', '' );
 ?>
 
 <footer class="bh-footer">
@@ -28,7 +29,7 @@ $bh_phone   = get_theme_mod( 'blog_hub_contact_phone', '' );
 
 			<?php if ( has_nav_menu( 'footer' ) ) : ?>
 				<div>
-					<h3 class="bh-footer__heading"><?php esc_html_e( 'Links', 'blog-hub' ); ?></h3>
+					<h3 class="bh-footer__heading"><?php esc_html_e( 'Important Links', 'blog-hub' ); ?></h3>
 					<?php
 					wp_nav_menu(
 						array(
@@ -68,6 +69,15 @@ $bh_phone   = get_theme_mod( 'blog_hub_contact_phone', '' );
 				</div>
 			<?php endif; ?>
 
+			<?php if ( $bh_map_embed ) : ?>
+				<div>
+					<h3 class="bh-footer__heading"><?php esc_html_e( 'Find Us', 'blog-hub' ); ?></h3>
+					<div class="bh-footer__map">
+						<?php echo $bh_map_embed; // phpcs:ignore WordPress.Security.EscapeOutput -- sanitized by blog_hub_sanitize_map_embed() to a Google Maps <iframe> only. ?>
+					</div>
+				</div>
+			<?php endif; ?>
+
 			<?php if ( is_active_sidebar( 'footer-widgets' ) ) : ?>
 				<div class="bh-footer__widgets">
 					<?php dynamic_sidebar( 'footer-widgets' ); ?>
@@ -81,14 +91,14 @@ $bh_phone   = get_theme_mod( 'blog_hub_contact_phone', '' );
 			<p class="bh-footer__copy">&copy; <?php echo esc_html( gmdate( 'Y' ) ); ?> <?php bloginfo( 'name' ); ?>. <?php esc_html_e( 'All rights reserved.', 'blog-hub' ); ?></p>
 			<?php if ( has_nav_menu( 'social' ) ) : ?>
 				<?php
+				// Each item's visible icon + hidden accessible label are
+				// built by blog_hub_social_menu_icon() in functions.php.
 				wp_nav_menu(
 					array(
 						'theme_location' => 'social',
 						'container'      => false,
 						'menu_class'     => 'bh-footer__social',
 						'fallback_cb'    => false,
-						'link_before'    => '<span class="screen-reader-text">',
-						'link_after'     => '</span>',
 					)
 				);
 				?>
