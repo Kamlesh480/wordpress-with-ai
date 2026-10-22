@@ -279,6 +279,44 @@ function blog_hub_author_cta_url( $user_id ) {
 	return get_user_meta( $user_id, 'blog_hub_author_cta_url', true );
 }
 
+/**
+ * Public contact email shown on the author page. Deliberately NOT the
+ * author's WordPress login email (get_the_author_meta('user_email') would
+ * expose that account's real address) — falls back to the site's own
+ * Customizer contact email so nothing displays if neither is set.
+ */
+function blog_hub_author_public_email( $user_id ) {
+	$public_email = get_user_meta( $user_id, 'blog_hub_author_public_email', true );
+	return $public_email ? $public_email : get_theme_mod( 'blog_hub_contact_email', '' );
+}
+
+/**
+ * Extra header stat tiles (e.g. "13 Years on Site", "400+ Site Deliveries
+ * Overseen") shown next to "Articles Published" on the author page — one
+ * "value | label" pair per line. Optional.
+ */
+function blog_hub_author_extra_stats( $user_id ) {
+	$raw = get_user_meta( $user_id, 'blog_hub_author_extra_stats', true );
+	if ( ! $raw ) {
+		return array();
+	}
+	$stats = array();
+	foreach ( explode( "\n", $raw ) as $line ) {
+		$line = trim( $line );
+		if ( ! $line || false === strpos( $line, '|' ) ) {
+			continue;
+		}
+		list( $value, $label ) = array_map( 'trim', explode( '|', $line, 2 ) );
+		if ( $value && $label ) {
+			$stats[] = array(
+				'value' => $value,
+				'label' => $label,
+			);
+		}
+	}
+	return $stats;
+}
+
 function blog_hub_author_profile_fields( $user ) {
 	?>
 	<h2><?php esc_html_e( 'Blog Hub Author Profile', 'blog-hub' ); ?></h2>
@@ -329,6 +367,21 @@ function blog_hub_author_profile_fields( $user ) {
 				<p class="description"><?php esc_html_e( 'Leave blank to hide the button.', 'blog-hub' ); ?></p>
 			</td>
 		</tr>
+		<tr>
+			<th><label for="blog_hub_author_public_email"><?php esc_html_e( 'Public contact email', 'blog-hub' ); ?></label></th>
+			<td>
+				<input type="email" name="blog_hub_author_public_email" id="blog_hub_author_public_email" class="regular-text"
+					value="<?php echo esc_attr( get_user_meta( $user->ID, 'blog_hub_author_public_email', true ) ); ?>">
+				<p class="description"><?php esc_html_e( 'Shown publicly on the author page. Leave blank to use the site-wide contact email instead of this account\'s private login email.', 'blog-hub' ); ?></p>
+			</td>
+		</tr>
+		<tr>
+			<th><label for="blog_hub_author_extra_stats"><?php esc_html_e( 'Extra profile stats', 'blog-hub' ); ?></label></th>
+			<td>
+				<textarea name="blog_hub_author_extra_stats" id="blog_hub_author_extra_stats" class="large-text" rows="3"><?php echo esc_textarea( get_user_meta( $user->ID, 'blog_hub_author_extra_stats', true ) ); ?></textarea>
+				<p class="description"><?php esc_html_e( 'One per line, as "value | label", e.g. "13 | Years on Site" or "400+ | Site Deliveries Overseen". Shown alongside Articles Published.', 'blog-hub' ); ?></p>
+			</td>
+		</tr>
 	</table>
 	<?php
 }
@@ -353,6 +406,12 @@ function blog_hub_save_author_profile_fields( $user_id ) {
 	}
 	if ( isset( $_POST['blog_hub_author_cta_url'] ) ) {
 		update_user_meta( $user_id, 'blog_hub_author_cta_url', esc_url_raw( wp_unslash( $_POST['blog_hub_author_cta_url'] ) ) );
+	}
+	if ( isset( $_POST['blog_hub_author_public_email'] ) ) {
+		update_user_meta( $user_id, 'blog_hub_author_public_email', sanitize_email( wp_unslash( $_POST['blog_hub_author_public_email'] ) ) );
+	}
+	if ( isset( $_POST['blog_hub_author_extra_stats'] ) ) {
+		update_user_meta( $user_id, 'blog_hub_author_extra_stats', sanitize_textarea_field( wp_unslash( $_POST['blog_hub_author_extra_stats'] ) ) );
 	}
 }
 add_action( 'personal_options_update', 'blog_hub_save_author_profile_fields' );
@@ -692,6 +751,17 @@ function blog_hub_customize_register( $wp_customize ) {
 		)
 	);
 
+	$wp_customize->add_setting( 'blog_hub_latest_posts_eyebrow', array( 'default' => '' ) );
+	$wp_customize->add_control(
+		'blog_hub_latest_posts_eyebrow',
+		array(
+			'label'       => __( 'Latest Posts eyebrow text', 'blog-hub' ),
+			'description' => __( 'A short label shown above the "Latest Posts" heading on page 1, e.g. "Fresh from the Casting Floor". Leave blank to hide it.', 'blog-hub' ),
+			'section'     => 'blog_hub_front_page',
+			'type'        => 'text',
+		)
+	);
+
 	$wp_customize->add_setting( 'blog_hub_links_line', array( 'default' => '', 'sanitize_callback' => 'wp_kses_post' ) );
 	$wp_customize->add_control(
 		'blog_hub_links_line',
@@ -832,3 +902,16 @@ function blog_hub_social_menu_icon( $title, $item, $args ) {
 	return '<i class="' . esc_attr( $icon_class ) . '" aria-hidden="true"></i><span class="screen-reader-text">' . esc_html( $title ) . '</span>';
 }
 add_filter( 'nav_menu_item_title', 'blog_hub_social_menu_icon', 10, 3 );
+
+/**
+ * Social profile links are external — open them in a new tab so visitors
+ * don't lose their place on the blog.
+ */
+function blog_hub_social_menu_link_attributes( $atts, $item, $args ) {
+	if ( ! empty( $args->theme_location ) && 'social' === $args->theme_location ) {
+		$atts['target'] = '_blank';
+		$atts['rel']    = 'noopener';
+	}
+	return $atts;
+}
+add_filter( 'nav_menu_link_attributes', 'blog_hub_social_menu_link_attributes', 10, 3 );

@@ -329,6 +329,11 @@
 	padding-block: var(--space-7);
 }
 
+.bh-category-dropdown {
+	position: relative;
+	display: inline-block;
+}
+
 .bh-category-dropdown summary {
 	cursor: pointer;
 	list-style: none;
@@ -353,9 +358,14 @@
 	margin: var(--space-2) 0 0;
 	padding: 0;
 	min-width: 300px;
+	max-height: 60vh;
+	overflow-y: auto;
 	background: var(--surface-card);
 	border: 1px solid var(--border-default);
-	position: relative;
+	box-shadow: 0 12px 24px rgba(0, 0, 0, 0.14);
+	position: absolute;
+	top: 100%;
+	left: 0;
 	z-index: 20;
 }
 

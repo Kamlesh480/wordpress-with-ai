@@ -31,8 +31,8 @@ $links = paginate_links(
 		'total'     => $query->max_num_pages,
 		'current'   => $current,
 		'mid_size'  => 1,
-		'prev_text' => '&laquo;',
-		'next_text' => '&raquo;',
+		'prev_text' => '&laquo; ' . __( 'Previous', 'blog-hub' ),
+		'next_text' => __( 'Next', 'blog-hub' ) . ' &raquo;',
 	)
 );
 

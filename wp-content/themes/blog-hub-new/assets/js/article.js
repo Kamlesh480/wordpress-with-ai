@@ -4,6 +4,34 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	var rail = document.querySelector( '[data-blog-hub-article-rail]' );
 	if ( rail ) {
 		var tocLinks = rail.querySelectorAll( '[data-toc-target]' );
+
+		// Repair pass: blog_hub_toc_from_content() injects id="" into plain
+		// <h2> tags in the raw post content, but a page builder (e.g.
+		// Elementor) can re-render the article body from its own stored
+		// widget data afterward, discarding that injected id. When a TOC
+		// link's target id isn't actually in the page, find the <h2> with
+		// matching visible text inside the article body and assign the id
+		// to it directly, so the link and scroll-spy both still work.
+		var articleBody = document.querySelector( '.bh-article-content' );
+		if ( articleBody ) {
+			tocLinks.forEach( function ( link ) {
+				var targetId = link.getAttribute( 'data-toc-target' );
+				if ( document.getElementById( targetId ) ) {
+					return;
+				}
+				var label = link.textContent.trim();
+				var heading = Array.prototype.find.call(
+					articleBody.querySelectorAll( 'h2' ),
+					function ( h2 ) {
+						return h2.textContent.trim() === label && ! h2.id;
+					}
+				);
+				if ( heading ) {
+					heading.id = targetId;
+				}
+			} );
+		}
+
 		var headings = Array.prototype.map
 			.call( tocLinks, function ( link ) {
 				return document.getElementById( link.getAttribute( 'data-toc-target' ) );

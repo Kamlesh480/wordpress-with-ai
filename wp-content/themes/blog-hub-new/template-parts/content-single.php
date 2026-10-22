@@ -43,10 +43,10 @@ $toc = blog_hub_toc_from_content( get_the_content() );
 					</span>
 				</div>
 				<div class="bh-share bh-share--article">
-					<a href="https://www.facebook.com/sharer/sharer.php?u=<?php echo rawurlencode( $permalink ); ?>" aria-label="<?php esc_attr_e( 'Share on Facebook', 'blog-hub' ); ?>"><i class="fa-brands fa-facebook-f" aria-hidden="true"></i></a>
-					<a href="https://wa.me/?text=<?php echo rawurlencode( get_the_title() . ' ' . $permalink ); ?>" aria-label="<?php esc_attr_e( 'Share on WhatsApp', 'blog-hub' ); ?>"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i></a>
-					<a href="https://www.linkedin.com/sharing/share-offsite/?url=<?php echo rawurlencode( $permalink ); ?>" aria-label="<?php esc_attr_e( 'Share on LinkedIn', 'blog-hub' ); ?>"><i class="fa-brands fa-linkedin-in" aria-hidden="true"></i></a>
-					<a href="https://twitter.com/intent/tweet?url=<?php echo rawurlencode( $permalink ); ?>" aria-label="<?php esc_attr_e( 'Share on X', 'blog-hub' ); ?>"><i class="fa-brands fa-x-twitter" aria-hidden="true"></i></a>
+					<a href="https://www.facebook.com/sharer/sharer.php?u=<?php echo rawurlencode( $permalink ); ?>" target="_blank" rel="noopener" aria-label="<?php esc_attr_e( 'Share on Facebook', 'blog-hub' ); ?>"><i class="fa-brands fa-facebook-f" aria-hidden="true"></i></a>
+					<a href="https://wa.me/?text=<?php echo rawurlencode( get_the_title() . ' ' . $permalink ); ?>" target="_blank" rel="noopener" aria-label="<?php esc_attr_e( 'Share on WhatsApp', 'blog-hub' ); ?>"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i></a>
+					<a href="https://www.linkedin.com/sharing/share-offsite/?url=<?php echo rawurlencode( $permalink ); ?>" target="_blank" rel="noopener" aria-label="<?php esc_attr_e( 'Share on LinkedIn', 'blog-hub' ); ?>"><i class="fa-brands fa-linkedin-in" aria-hidden="true"></i></a>
+					<a href="https://twitter.com/intent/tweet?url=<?php echo rawurlencode( $permalink ); ?>" target="_blank" rel="noopener" aria-label="<?php esc_attr_e( 'Share on X', 'blog-hub' ); ?>"><i class="fa-brands fa-x-twitter" aria-hidden="true"></i></a>
 				</div>
 			</div>
 		</div>
@@ -61,7 +61,14 @@ $toc = blog_hub_toc_from_content( get_the_content() );
 	<?php endif; ?>
 
 	<?php
-	$excerpt = get_the_excerpt();
+	// A manually-written excerpt is used as-is; WordPress's auto-generated
+	// fallback is plain-text-stripped and re-trimmed to a clean word count so
+	// it reads as a short summary instead of a raw content fragment (which
+	// can otherwise run table/list text together and end mid-sentence).
+	$has_manual_excerpt = has_excerpt( $post_id );
+	$excerpt            = $has_manual_excerpt
+		? get_the_excerpt()
+		: wp_trim_words( wp_strip_all_tags( strip_shortcodes( get_the_content() ) ), 32 );
 	if ( $excerpt ) :
 		?>
 		<div class="bh-article-tldr-wrap">

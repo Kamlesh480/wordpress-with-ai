@@ -12,20 +12,32 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$is_category   = is_category();
-$is_author     = is_author();
-$is_blog_index = is_home();
-$cats          = ( $is_category || $is_author || $is_blog_index ) ? array() : get_the_category();
-$primary_cat   = ! empty( $cats ) ? $cats[0] : null;
-$blog_page     = get_option( 'page_for_posts' );
+$is_category    = is_category();
+$is_author      = is_author();
+$is_blog_index  = is_home();
+$cats           = ( $is_category || $is_author || $is_blog_index ) ? array() : get_the_category();
+$primary_cat    = ! empty( $cats ) ? $cats[0] : null;
+$blog_page      = get_option( 'page_for_posts' );
+$blog_page_name = $blog_page ? get_the_title( $blog_page ) : __( 'Blog', 'blog-hub' );
+$paged          = max( (int) get_query_var( 'paged' ), 1 );
 ?>
 <nav class="bh-breadcrumb" aria-label="<?php esc_attr_e( 'Breadcrumb', 'blog-hub' ); ?>">
 	<div class="bh-container">
 		<ol>
 			<li><a href="<?php echo esc_url( home_url( '/' ) ); ?>"><?php esc_html_e( 'Home', 'blog-hub' ); ?></a></li>
-			<?php if ( $is_blog_index ) : ?>
+			<?php if ( $is_blog_index && $paged > 1 ) : ?>
 				<li><span aria-hidden="true">/</span></li>
-				<li aria-current="page"><?php echo esc_html( $blog_page ? get_the_title( $blog_page ) : __( 'Blog', 'blog-hub' ) ); ?></li>
+				<li><a href="<?php echo esc_url( $blog_page ? get_permalink( $blog_page ) : home_url( '/' ) ); ?>"><?php echo esc_html( $blog_page_name ); ?></a></li>
+				<li><span aria-hidden="true">/</span></li>
+				<li aria-current="page">
+					<?php
+					/* translators: %d: page number. */
+					echo esc_html( sprintf( __( 'Page %d', 'blog-hub' ), $paged ) );
+					?>
+				</li>
+			<?php elseif ( $is_blog_index ) : ?>
+				<li><span aria-hidden="true">/</span></li>
+				<li aria-current="page"><?php echo esc_html( $blog_page_name ); ?></li>
 			<?php else : ?>
 				<?php if ( $blog_page ) : ?>
 					<li><span aria-hidden="true">/</span></li>

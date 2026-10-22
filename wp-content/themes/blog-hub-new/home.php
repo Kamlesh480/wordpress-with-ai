@@ -26,22 +26,20 @@ $hero_intro   = get_theme_mod( 'blog_hub_hero_intro', '' );
 $paged        = max( (int) get_query_var( 'paged' ), 1 );
 $is_first_page = ( 1 === $paged );
 
-// Featured post (page 1 only): the most recent "sticky" post, falling back
-// to the latest post.
-$featured_id = 0;
-if ( $is_first_page ) {
-	$featured_query = new WP_Query(
-		array(
-			'posts_per_page'      => 1,
-			'post__in'            => get_option( 'sticky_posts' ),
-			'ignore_sticky_posts' => 1,
-		)
-	);
-	if ( ! $featured_query->have_posts() ) {
-		$featured_query = new WP_Query( array( 'posts_per_page' => 1 ) );
-	}
-	$featured_id = $featured_query->have_posts() ? $featured_query->posts[0]->ID : 0;
+// Featured post: the most recent "sticky" post, falling back to the latest
+// post. Shown only on page 1, but always excluded from the grid query below
+// so it can't also reappear further down the listing on page 2+.
+$featured_query = new WP_Query(
+	array(
+		'posts_per_page'      => 1,
+		'post__in'            => get_option( 'sticky_posts' ),
+		'ignore_sticky_posts' => 1,
+	)
+);
+if ( ! $featured_query->have_posts() ) {
+	$featured_query = new WP_Query( array( 'posts_per_page' => 1 ) );
 }
+$featured_id = $featured_query->have_posts() ? $featured_query->posts[0]->ID : 0;
 
 // Latest posts grid, excluding the featured post, paged.
 $latest_query = new WP_Query(
@@ -87,18 +85,18 @@ $latest_query = new WP_Query(
 
 <?php get_template_part( 'template-parts/category-dropdown' ); ?>
 
-<?php if ( $featured_id ) : ?>
+<?php if ( $is_first_page && $featured_id ) : ?>
 	<section class="bh-featured">
 		<div class="bh-container">
-			<span class="bh-featured__eyebrow"><?php esc_html_e( 'Featured', 'blog-hub' ); ?></span>
+			<span class="bh-featured__eyebrow"><?php esc_html_e( 'Featured Guide', 'blog-hub' ); ?></span>
 			<article class="bh-featured__card">
-				<div class="bh-featured__media<?php echo has_post_thumbnail( $featured_id ) ? '' : ' bh-featured__media--empty'; ?>">
+				<a class="bh-featured__media<?php echo has_post_thumbnail( $featured_id ) ? '' : ' bh-featured__media--empty'; ?>" href="<?php echo esc_url( get_permalink( $featured_id ) ); ?>">
 					<?php if ( has_post_thumbnail( $featured_id ) ) : ?>
 						<?php echo get_the_post_thumbnail( $featured_id, 'large' ); ?>
 					<?php else : ?>
 						<i class="fa-regular fa-image" aria-hidden="true"></i>
 					<?php endif; ?>
-				</div>
+				</a>
 				<div class="bh-featured__body">
 					<?php
 					$cats = get_the_category( $featured_id );
@@ -125,9 +123,9 @@ $latest_query = new WP_Query(
 						<a class="bh-btn" href="<?php echo esc_url( get_permalink( $featured_id ) ); ?>"><?php esc_html_e( 'Read More', 'blog-hub' ); ?></a>
 						<?php $featured_permalink = get_permalink( $featured_id ); ?>
 						<div class="bh-share">
-							<a href="https://wa.me/?text=<?php echo rawurlencode( get_the_title( $featured_id ) . ' ' . $featured_permalink ); ?>" aria-label="<?php esc_attr_e( 'Share on WhatsApp', 'blog-hub' ); ?>"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i></a>
-							<a href="https://www.linkedin.com/sharing/share-offsite/?url=<?php echo rawurlencode( $featured_permalink ); ?>" aria-label="<?php esc_attr_e( 'Share on LinkedIn', 'blog-hub' ); ?>"><i class="fa-brands fa-linkedin-in" aria-hidden="true"></i></a>
-							<a href="https://twitter.com/intent/tweet?url=<?php echo rawurlencode( $featured_permalink ); ?>" aria-label="<?php esc_attr_e( 'Share on X', 'blog-hub' ); ?>"><i class="fa-brands fa-x-twitter" aria-hidden="true"></i></a>
+							<a href="https://wa.me/?text=<?php echo rawurlencode( get_the_title( $featured_id ) . ' ' . $featured_permalink ); ?>" target="_blank" rel="noopener" aria-label="<?php esc_attr_e( 'Share on WhatsApp', 'blog-hub' ); ?>"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i></a>
+							<a href="https://www.linkedin.com/sharing/share-offsite/?url=<?php echo rawurlencode( $featured_permalink ); ?>" target="_blank" rel="noopener" aria-label="<?php esc_attr_e( 'Share on LinkedIn', 'blog-hub' ); ?>"><i class="fa-brands fa-linkedin-in" aria-hidden="true"></i></a>
+							<a href="https://twitter.com/intent/tweet?url=<?php echo rawurlencode( $featured_permalink ); ?>" target="_blank" rel="noopener" aria-label="<?php esc_attr_e( 'Share on X', 'blog-hub' ); ?>"><i class="fa-brands fa-x-twitter" aria-hidden="true"></i></a>
 						</div>
 					</div>
 				</div>
@@ -144,6 +142,10 @@ $latest_query = new WP_Query(
 	<div class="bh-container">
 		<?php if ( $is_first_page ) : ?>
 			<div class="bh-section-head">
+				<?php $latest_posts_eyebrow = get_theme_mod( 'blog_hub_latest_posts_eyebrow', '' ); ?>
+				<?php if ( $latest_posts_eyebrow ) : ?>
+					<span class="bh-section-head__eyebrow"><?php echo esc_html( $latest_posts_eyebrow ); ?></span>
+				<?php endif; ?>
 				<h2 class="bh-section-head__title"><?php esc_html_e( 'Latest Posts', 'blog-hub' ); ?></h2>
 				<div class="bh-section-head__rule"></div>
 			</div>

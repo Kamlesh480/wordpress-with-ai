@@ -21,6 +21,7 @@
 	line-height: 1.15;
 	font-weight: var(--fw-light);
 	letter-spacing: var(--ls-caps);
+	text-transform: uppercase;
 	color: var(--text-heading);
 }
 
@@ -449,6 +450,7 @@
 	font-size: 11px;
 	font-weight: var(--fw-bold);
 	letter-spacing: var(--ls-caps);
+	text-transform: uppercase;
 	color: var(--text-heading);
 }
 
@@ -570,7 +572,10 @@
 
 .bh-back-to-top {
 	position: fixed;
-	bottom: 24px;
+	/* Offset above the bottom-right corner so it doesn't collide with
+	   third-party floating widgets (WhatsApp chat, accessibility toolbar)
+	   that commonly anchor to that same corner. */
+	bottom: 96px;
 	right: 24px;
 	width: 48px;
 	height: 48px;

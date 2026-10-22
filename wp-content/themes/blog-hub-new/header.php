@@ -60,21 +60,31 @@ if ( $bh_contact_email || $bh_contact_phone || $bh_contact_phone_2 ) :
 			<?php if ( has_custom_logo() ) : ?>
 				<?php the_custom_logo(); ?>
 			<?php else : ?>
-				<span class="bh-brand__name"><?php bloginfo( 'name' ); ?></span>
-				<?php if ( get_bloginfo( 'description' ) ) : ?>
-					<span class="bh-brand__sub"><?php bloginfo( 'description' ); ?></span>
-				<?php endif; ?>
+				<span class="bh-brand__text">
+					<span class="bh-brand__name"><?php bloginfo( 'name' ); ?></span>
+					<?php if ( get_bloginfo( 'description' ) ) : ?>
+						<span class="bh-brand__sub"><?php bloginfo( 'description' ); ?></span>
+					<?php endif; ?>
+				</span>
 			<?php endif; ?>
 		</a>
-		<?php
-		wp_nav_menu(
-			array(
-				'theme_location' => 'primary',
-				'container'      => false,
-				'menu_class'     => 'bh-menu',
-				'fallback_cb'    => false,
-			)
-		);
-		?>
+		<?php if ( has_nav_menu( 'primary' ) ) : ?>
+			<button type="button" class="bh-nav__toggle" aria-expanded="false" aria-controls="bh-primary-menu">
+				<span class="screen-reader-text"><?php esc_html_e( 'Menu', 'blog-hub' ); ?></span>
+				<i class="fa-solid fa-bars" aria-hidden="true"></i>
+			</button>
+		<?php endif; ?>
+		<div class="bh-nav__menu" id="bh-primary-menu">
+			<?php
+			wp_nav_menu(
+				array(
+					'theme_location' => 'primary',
+					'container'      => false,
+					'menu_class'     => 'bh-menu',
+					'fallback_cb'    => false,
+				)
+			);
+			?>
+		</div>
 	</div>
 </nav>

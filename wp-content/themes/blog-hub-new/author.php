@@ -20,9 +20,10 @@ $expertise   = blog_hub_author_expertise( $author_id );
 $highlights  = blog_hub_author_highlights( $author_id );
 $cta_url     = blog_hub_author_cta_url( $author_id );
 $website     = get_the_author_meta( 'user_url', $author_id );
-$email       = get_the_author_meta( 'user_email', $author_id );
+$email       = blog_hub_author_public_email( $author_id );
 $phone       = get_theme_mod( 'blog_hub_contact_phone', '' );
 $post_count  = count_user_posts( $author_id, 'post' );
+$extra_stats = blog_hub_author_extra_stats( $author_id );
 
 global $wp_query;
 ?>
@@ -40,7 +41,7 @@ global $wp_query;
 			<?php endif; ?>
 			<?php if ( $linkedin ) : ?>
 				<div class="bh-author-header__links">
-					<a href="<?php echo esc_url( $linkedin ); ?>" aria-label="<?php
+					<a href="<?php echo esc_url( $linkedin ); ?>" target="_blank" rel="noopener" aria-label="<?php
 						/* translators: %s: author's display name. */
 						echo esc_attr( sprintf( __( '%s on LinkedIn', 'blog-hub' ), get_the_author_meta( 'display_name', $author_id ) ) );
 					?>"><i class="fa-brands fa-linkedin-in" aria-hidden="true"></i></a>
@@ -51,6 +52,12 @@ global $wp_query;
 					<span class="bh-author-header__stat-value"><?php echo esc_html( $post_count ); ?></span>
 					<span class="bh-author-header__stat-label"><?php esc_html_e( 'Articles Published', 'blog-hub' ); ?></span>
 				</div>
+				<?php foreach ( $extra_stats as $stat ) : ?>
+					<div>
+						<span class="bh-author-header__stat-value"><?php echo esc_html( $stat['value'] ); ?></span>
+						<span class="bh-author-header__stat-label"><?php echo esc_html( $stat['label'] ); ?></span>
+					</div>
+				<?php endforeach; ?>
 			</div>
 		</div>
 	</div>
@@ -108,7 +115,7 @@ global $wp_query;
 							<a href="mailto:<?php echo esc_attr( $email ); ?>"><i class="fa-regular fa-envelope" aria-hidden="true"></i><?php echo esc_html( $email ); ?></a>
 						<?php endif; ?>
 						<?php if ( $website ) : ?>
-							<a href="<?php echo esc_url( $website ); ?>" rel="nofollow"><i class="fa-solid fa-globe" aria-hidden="true"></i><?php echo esc_html( $website ); ?></a>
+							<a href="<?php echo esc_url( $website ); ?>" target="_blank" rel="nofollow noopener"><i class="fa-solid fa-globe" aria-hidden="true"></i><?php echo esc_html( $website ); ?></a>
 						<?php endif; ?>
 					</div>
 				<?php endif; ?>
@@ -123,6 +130,12 @@ global $wp_query;
 <section class="bh-latest-posts">
 	<div class="bh-container">
 		<div class="bh-section-head">
+			<span class="bh-section-head__eyebrow">
+				<?php
+				/* translators: %s: author's display name. */
+				echo esc_html( sprintf( __( 'Written by %s', 'blog-hub' ), $author_name ) );
+				?>
+			</span>
 			<h2 class="bh-section-head__title"><?php esc_html_e( 'Latest Articles', 'blog-hub' ); ?></h2>
 			<div class="bh-section-head__rule"></div>
 		</div>
