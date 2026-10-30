@@ -2,10 +2,14 @@
 /**
  * Blog Hub theme functions.
  *
- * Presentation only: no custom post types, no taxonomies, no database schema
- * changes. Everything here reads existing WordPress data (posts, pages,
- * categories, authors, menus) — switching away from this theme later leaves
- * the site's content fully intact.
+ * Presentation only: everything here reads existing WordPress data (posts,
+ * pages, categories, authors, menus) — switching away from this theme later
+ * leaves the site's content fully intact. The one exception is inc/main-site.php,
+ * which registers a handful of minimal custom post types (Products,
+ * Applications, Client Logos, Testimonials) for the homepage's repeating
+ * content sections, since WordPress has no native data model for those —
+ * each is just a title + featured image + at most two plain meta fields,
+ * with no business logic beyond that.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -13,6 +17,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 define( 'BLOG_HUB_VERSION', '1.0.0' );
+
+require_once get_template_directory() . '/inc/main-site.php';
 
 /**
  * Theme setup.
@@ -111,9 +117,16 @@ function blog_hub_assets() {
 	);
 
 	wp_enqueue_style(
+		'blog-hub-main-site',
+		get_template_directory_uri() . '/assets/css/main-site.css',
+		array( 'blog-hub-pages' ),
+		BLOG_HUB_VERSION
+	);
+
+	wp_enqueue_style(
 		'blog-hub-style',
 		get_stylesheet_uri(),
-		array( 'blog-hub-pages' ),
+		array( 'blog-hub-main-site' ),
 		BLOG_HUB_VERSION
 	);
 
@@ -124,6 +137,16 @@ function blog_hub_assets() {
 		BLOG_HUB_VERSION,
 		true
 	);
+
+	if ( is_front_page() ) {
+		wp_enqueue_script(
+			'blog-hub-main-site',
+			get_template_directory_uri() . '/assets/js/main-site.js',
+			array(),
+			BLOG_HUB_VERSION,
+			true
+		);
+	}
 
 	if ( is_singular( 'post' ) ) {
 		wp_enqueue_script(

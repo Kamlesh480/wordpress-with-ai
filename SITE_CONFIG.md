@@ -371,20 +371,190 @@ Both are optional — leave empty if you don't need them yet.
   ```
   A static page
   ```
-- ⬜ **Homepage** → select the existing Elementor-built homepage from the
-  dropdown. **Do not change this to anything else** — the live homepage must
-  stay untouched.
+- ⬜ **Homepage** → **until the new homepage (section 10 below) is reviewed
+  and approved, leave this selecting the existing Elementor-built homepage.**
+  The theme now also has its own real homepage (`front-page.php`) ready to go
+  — see the big warning at the top of section 10 for exactly how and when to
+  switch this over. Do not switch it over as part of routine config work.
 - ⬜ **Posts page** → select (or create) the page that should host the Blog
   Hub design — e.g. a page simply titled "Blog". This makes it render at
   whatever that page's URL is (typically `/blog/`), using the theme's
   `home.php` (see the theme's own `.serena/memories/project_overview.md` for
-  why that file, not `front-page.php`, is the one that matters).
+  why that file, not `front-page.php`, is the one that matters — and note
+  `home.php` and `front-page.php` are two different files serving two
+  different purposes, both explained there).
 - ⬜ **Blog pages show at most** → a number, e.g.
   ```
   12
   ```
   This controls posts per page on Category and Author archive pages (the main
   Blog Hub listing always shows 12 regardless of this setting).
+
+## 10. Homepage (Appearance > Customize > Homepage, plus three new content areas in the wp-admin sidebar)
+
+⚠️ **Before touching Settings > Reading to make this the live homepage:** the
+theme can now build a complete new homepage (hero, products, about teaser,
+applications, clients, blog teaser, testimonials, a closing call-to-action),
+matching the Home.dc.html design supplied for this round. **It is NOT live
+yet** — it only becomes the real homepage once someone deliberately changes
+Settings > Reading → Homepage to point at it, which nobody should do until
+this page has been reviewed on staging and the switch is explicitly approved.
+Until then, building/configuring it here is completely safe — it has no
+effect on the live site's real homepage.
+
+**Customizer fields** (Appearance > Customize > Homepage):
+
+- ⬜ **Hero heading**
+  Paste this value:
+  ```
+  "Building Trust, Creating Products"
+  Products that last as long as our vision.
+  ```
+- ⬜ **Hero button text**
+  Paste this value:
+  ```
+  View Products
+  ```
+- ⬜ **Hero button link** — point this at your real products page.
+  Paste this value (edit the path if different):
+  ```
+  /products/
+  ```
+- ⬜ **Hero background image** — upload a wide, dark-toned photo (precast
+  pipes/yard work well, matching the original design's grayscale-filtered
+  photo treatment).
+- ⬜ **About Us teaser text** — basic HTML links allowed.
+  Paste this value:
+  ```
+  In the world of precast concrete industries, Shubh Sanskar is a trusted Indian Brand since 2010. We as a company started with one RCC pipe manufacturing plant and now striving and thriving in many more domains of the concrete industry. <a href="/about-us/">Read more.</a>
+  ```
+- ⬜ **About Us gallery images 1–4** — four square-ish photos shown in a 2×2
+  grid next to the About teaser text.
+- ⬜ **Reason 1–4 — icon / title / description** (the "Why Choose Us" row):
+  Paste these values (one set per reason):
+  ```
+  Reason 1 icon:  fa-solid fa-palette
+  Reason 1 title: Customization
+  Reason 1 text:  We deliver concrete products tailor-made for your requirements. This is what we work for.
+
+  Reason 2 icon:  fa-solid fa-certificate
+  Reason 2 title: Quality
+  Reason 2 text:  Quality control is carried out by our team of engineers and experts, ensuring that we deliver what we promise.
+
+  Reason 3 icon:  fa-solid fa-hammer
+  Reason 3 title: Durability
+  Reason 3 text:  With proper tests, controls, and material inspection we ensure that every item we make is durable to withstand the industry standards.
+
+  Reason 4 icon:  fa-solid fa-scale-balanced
+  Reason 4 title: Affordable
+  Reason 4 text:  Affordable Products because we don't make products, we make relationships. Making our customers our priority.
+  ```
+- ⬜ **End-of-page CTA heading**
+  Paste this value:
+  ```
+  Help us know what you want?
+  ```
+- ⬜ **End-of-page CTA button text**
+  Paste this value:
+  ```
+  Get in touch
+  ```
+- ⬜ **End-of-page CTA button link** — point this at your real contact page.
+  Paste this value (edit the path if different):
+  ```
+  /contact-us/
+  ```
+- ⬜ **End-of-page CTA background image** — optional; leave blank for a plain
+  navy background.
+
+**New content areas** (left-hand wp-admin sidebar — each works exactly like
+adding a blog post: a title, a featured image, and sometimes one or two extra
+fields in a box on the right):
+
+- ⬜ **Products (Homepage)** — one entry per product card in the "Our
+  Products" grid. Fill in: Title (e.g. "RCC Hume Pipes"), a Featured Image,
+  and the "Product Link" field (where the card links to — the product's real
+  page, wherever that ends up living).
+- ⬜ **Applications (Homepage)** — the flip-card tiles (Railway, Roadways,
+  Telecommunication, Housing, etc.). Fill in: Title, a Featured Image (front
+  of the card), and the main content box (back of the card — a short
+  paragraph, shown when hovered/tapped).
+- ⬜ **Client Logos (Homepage)** — the scrolling client-logo strip. Fill in:
+  Title (the company name, used for accessible alt text) and a Featured
+  Image (the logo itself, ideally a transparent PNG). Add as many as you
+  like — the carousel pages through them automatically once there are more
+  than 5.
+- ⬜ **Testimonials** — fill in: Title (the person's name), a Featured Image
+  (their photo), the main content box (the testimonial text itself), and in
+  the sidebar box: Location (e.g. "Delhi") and Star rating (1–5, defaults
+  to 5).
+
+## 11. About Us page
+
+- ⬜ Create a Page (or use an existing one), set its **Template** (in the
+  Page Attributes box) to **"About Us"**.
+- ⬜ Write the "Who We Are" section directly in the page's own content editor
+  — this theme does not have a separate field for it, since it's the page's
+  actual body copy. Suggested starting content (add real icons/checkmarks
+  list formatting as needed):
+  ```
+  WHO WE ARE
+  THE LEADING CUSTOMIZED PRECAST CONCRETE PRODUCT MANUFACTURING COMPANY.
+
+  Young India's young company, we are a team of young enthusiasts backed by the experience of people working in the concrete industry for over a decade.
+
+  Our Vision is to build better products for the betterment of India's Infrastructure and make a mark at World Level.
+
+  - We are the Leading Manufacturer of RCC Pipes, Manhole Systems, Precast Concrete Drain and Drain Cover, Cable Covers, and Coping Stones.
+  - We are a Customized Concrete Product Manufacturer.
+  ```
+- ⬜ **Page Header Image** (meta box on the right side of the page editor,
+  only appears once the About Us template is selected) — a wide background
+  photo for the dark "ABOUT US" banner at the top. Paste a Media Library
+  image URL.
+- ⬜ The "Didn't Find What You Were Looking For?" section at the bottom
+  reuses the **same Contact Details** (Email, Address, Map embed) already
+  set up in section 2 — nothing new to configure there, it'll pick those up
+  automatically.
+
+## 12. Contact Us page
+
+- ⬜ Create a Page (or use an existing one), set its **Template** to
+  **"Contact Us"**.
+- ⬜ **Page Header Image** (same meta box as About Us) — a wide background
+  photo for the dark "CONTACT US" banner.
+- ⬜ **Contact page — intro heading** (Customizer > Contact Details)
+  Paste this value:
+  ```
+  Contact us through this form!
+  ```
+- ⬜ Write the short intro paragraph in the page's own content editor (the
+  "We're here to help you with your real estate or construction project…"
+  copy) — same as About Us, this is body content, not a separate field.
+- ⬜ **Contact form shortcode** (Customizer > Contact Details) — **this is
+  the one piece that needs a decision before the page works end-to-end.**
+  1. Build a form in **WPForms** (already installed on this site) with the
+     fields: Name*, Company Name, Email*, Phone Number*, Query* (a
+     paragraph/textarea field), plus WPForms' own built-in spam protection
+     (reCAPTCHA or similar — don't rebuild that by hand).
+  2. Set up WPForms' notification email to send to your real inbox, and a
+     confirmation message for the visitor.
+  3. Copy the shortcode WPForms gives you (Embed button, or from the forms
+     list — looks like `[wpforms id="123"]`) and paste it into this field.
+  Until this is set, the page shows a plain placeholder message instead of a
+  broken or fake-looking form — safe to leave blank while WPForms is being
+  set up.
+- ⬜ **Office / factory locations** (Customizer > Contact Details) — one line
+  per location, as `Label | Address | Google Maps embed URL`. Get the embed
+  URL from Google Maps → Share → Embed a map → copy just the `src="..."`
+  value out of the `<iframe>` code (not the whole iframe tag, just that one
+  URL).
+  Paste this value (edit the addresses/URLs to your real ones):
+  ```
+  Office | 33, Sohna Rd, Opposite Devilal Garden, Ballabgarh, Faridabad, 121004, Haryana | https://www.google.com/maps/embed?pb=PASTE_YOUR_REAL_EMBED_PARAMETERS_HERE
+  Factory | 45 KM, Village Gadpuri, Mathura Road, NH-19, Palwal, 121102, Haryana | https://www.google.com/maps/embed?pb=PASTE_YOUR_REAL_EMBED_PARAMETERS_HERE
+  Factory | Village Alawalpur, Amarpur-Palwal road, Palwal, 121102, Haryana | https://www.google.com/maps/embed?pb=PASTE_YOUR_REAL_EMBED_PARAMETERS_HERE
+  ```
 
 ---
 
