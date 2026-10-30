@@ -2,11 +2,13 @@
 /**
  * Template Name: About Us
  *
- * Assign this to a Page from the editor's "Template" dropdown. The main
- * intro paragraph, "Who We Are" copy, and the page's own content come from
- * the_content() (the normal page editor) — only the page-header image, the
- * gallery photo, and the "Find Us" map are separate Customizer fields, since
- * those aren't part of the body copy itself.
+ * Assign this to a Page from the editor's "Template" dropdown. All of the
+ * "Who We Are" copy — intro paragraph, heading, sub-heading, body text,
+ * vision line, checklist — comes from the_content() (the normal page
+ * editor); the template wraps it in the two-column layout and places the
+ * "Who We Are" photo (its own meta box) in the second column. Only the
+ * page-header image, the gallery photo, and the "Find Us" map are separate
+ * fields, since those aren't part of the body copy itself.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -18,10 +20,25 @@ get_header();
 while ( have_posts() ) :
 	the_post();
 
-	$page_hero_image = get_post_meta( get_the_ID(), 'blog_hub_page_hero_image', true );
-	$map_embed       = get_theme_mod( 'blog_hub_map_embed', '' );
-	$email           = get_theme_mod( 'blog_hub_contact_email', '' );
-	$address         = get_theme_mod( 'blog_hub_address', '' );
+	$page_hero_image    = get_post_meta( get_the_ID(), 'blog_hub_page_hero_image', true );
+	$gallery_image      = get_post_meta( get_the_ID(), 'blog_hub_about_gallery_image', true );
+	$map_embed          = get_theme_mod( 'blog_hub_map_embed', '' );
+	$email              = get_theme_mod( 'blog_hub_contact_email', '' );
+	$address            = get_theme_mod( 'blog_hub_address', '' );
+
+	// The intro paragraph (full-width, above the two-column "Who We Are"
+	// block) is just the first block of the_content(); everything after it
+	// goes in the left column next to the gallery photo. Splitting on the
+	// first </p> keeps this simple without needing a second editor field.
+	$content       = apply_filters( 'the_content', get_the_content() );
+	$split_at      = strpos( $content, '</p>' );
+	if ( false !== $split_at ) {
+		$intro_html = substr( $content, 0, $split_at + 4 );
+		$rest_html  = substr( $content, $split_at + 4 );
+	} else {
+		$intro_html = $content;
+		$rest_html  = '';
+	}
 	?>
 
 	<section class="bh-ms-page-hero">
@@ -35,8 +52,21 @@ while ( have_posts() ) :
 		</div>
 	</section>
 
-	<div class="bh-ms-intro bh-ms-who-we-are">
-		<?php the_content(); ?>
+	<div class="bh-ms-intro">
+		<?php echo $intro_html; // phpcs:ignore WordPress.Security.EscapeOutput -- the_content filter already sanitizes/KSES's this. ?>
+	</div>
+
+	<div class="bh-ms-who-we-are">
+		<div class="bh-ms-who-we-are__inner">
+			<div class="bh-ms-who-we-are__copy">
+				<?php echo $rest_html; // phpcs:ignore WordPress.Security.EscapeOutput -- the_content filter already sanitizes/KSES's this. ?>
+			</div>
+			<?php if ( $gallery_image ) : ?>
+				<div class="bh-ms-who-we-are__image">
+					<img src="<?php echo esc_url( $gallery_image ); ?>" alt="">
+				</div>
+			<?php endif; ?>
+		</div>
 	</div>
 
 	<?php if ( $map_embed || $email || $address ) : ?>

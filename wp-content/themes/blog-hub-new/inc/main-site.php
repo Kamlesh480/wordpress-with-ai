@@ -152,6 +152,15 @@ function blog_hub_main_site_meta_boxes() {
 			'side'
 		);
 	}
+	if ( 'page-templates/template-about.php' === $template ) {
+		add_meta_box(
+			'blog_hub_about_gallery_image',
+			__( '"Who We Are" Photo', 'blog-hub' ),
+			'blog_hub_render_about_gallery_image_meta_box',
+			'page',
+			'side'
+		);
+	}
 }
 add_action( 'add_meta_boxes', 'blog_hub_main_site_meta_boxes' );
 
@@ -177,6 +186,19 @@ function blog_hub_render_page_hero_image_meta_box( $post ) {
 			value="<?php echo esc_attr( $image_url ); ?>" placeholder="https://&hellip;">
 	</p>
 	<p class="description"><?php esc_html_e( 'Upload the image to the Media Library first, then paste its URL here. Leave blank for a plain navy background.', 'blog-hub' ); ?></p>
+	<?php
+}
+
+function blog_hub_render_about_gallery_image_meta_box( $post ) {
+	wp_nonce_field( 'blog_hub_save_about_gallery_image', 'blog_hub_about_gallery_image_nonce' );
+	$image_url = get_post_meta( $post->ID, 'blog_hub_about_gallery_image', true );
+	?>
+	<p>
+		<label for="blog_hub_about_gallery_image"><?php esc_html_e( 'Photo shown next to the "Who We Are" text:', 'blog-hub' ); ?></label>
+		<input type="url" id="blog_hub_about_gallery_image" name="blog_hub_about_gallery_image" class="widefat"
+			value="<?php echo esc_attr( $image_url ); ?>" placeholder="https://&hellip;">
+	</p>
+	<p class="description"><?php esc_html_e( 'Upload the image to the Media Library first, then paste its URL here.', 'blog-hub' ); ?></p>
 	<?php
 }
 
@@ -234,6 +256,14 @@ function blog_hub_save_main_site_meta_boxes( $post_id ) {
 		&& isset( $_POST['blog_hub_page_hero_image'] )
 	) {
 		update_post_meta( $post_id, 'blog_hub_page_hero_image', esc_url_raw( wp_unslash( $_POST['blog_hub_page_hero_image'] ) ) );
+	}
+
+	if (
+		isset( $_POST['blog_hub_about_gallery_image_nonce'] )
+		&& wp_verify_nonce( wp_unslash( $_POST['blog_hub_about_gallery_image_nonce'] ), 'blog_hub_save_about_gallery_image' )
+		&& isset( $_POST['blog_hub_about_gallery_image'] )
+	) {
+		update_post_meta( $post_id, 'blog_hub_about_gallery_image', esc_url_raw( wp_unslash( $_POST['blog_hub_about_gallery_image'] ) ) );
 	}
 }
 add_action( 'save_post', 'blog_hub_save_main_site_meta_boxes' );

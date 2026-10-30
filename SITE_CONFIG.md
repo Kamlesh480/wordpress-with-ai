@@ -493,13 +493,20 @@ fields in a box on the right):
 
 - ⬜ Create a Page (or use an existing one), set its **Template** (in the
   Page Attributes box) to **"About Us"**.
-- ⬜ Write the "Who We Are" section directly in the page's own content editor
-  — this theme does not have a separate field for it, since it's the page's
-  actual body copy. Suggested starting content (add real icons/checkmarks
-  list formatting as needed):
+- ⬜ Write the page content directly in the page's own content editor — this
+  theme does not have separate fields for this copy, since it's the page's
+  actual body copy. The template automatically splits it: your **first
+  paragraph** becomes the full-width intro right under the banner, and
+  everything after that becomes the two-column "Who We Are" section (text on
+  the left, photo on the right — see the next bullet for the photo). A plain
+  bulleted list automatically gets checkmark icons, no manual formatting
+  needed. Suggested starting content:
   ```
-  WHO WE ARE
-  THE LEADING CUSTOMIZED PRECAST CONCRETE PRODUCT MANUFACTURING COMPANY.
+  Starting as a one-item RCC pipe plant in 2010, Shubh Sanskar Concrete has now become the upcoming leading industry in the domain of concrete manufacturers in India. From being the manufacturer of RCC Pipes, Manhole Chambers, Coping stones, paver blocks, and many more products to delving into becoming a Customized Concrete Product Manufacturer, we have expanded our field of interest to cater to the needs of customers.
+
+  Who We Are
+
+  The leading customized precast concrete product manufacturing company.
 
   Young India's young company, we are a team of young enthusiasts backed by the experience of people working in the concrete industry for over a decade.
 
@@ -508,10 +515,18 @@ fields in a box on the right):
   - We are the Leading Manufacturer of RCC Pipes, Manhole Systems, Precast Concrete Drain and Drain Cover, Cable Covers, and Coping Stones.
   - We are a Customized Concrete Product Manufacturer.
   ```
+  Tip: type/paste this as plain text in the block editor — "Who We Are" as a
+  Heading block, "The leading customized..." line as a smaller Heading
+  block, the rest as Paragraph blocks, and the last two lines as a bulleted
+  List block.
 - ⬜ **Page Header Image** (meta box on the right side of the page editor,
   only appears once the About Us template is selected) — a wide background
   photo for the dark "ABOUT US" banner at the top. Paste a Media Library
   image URL.
+- ⬜ **"Who We Are" Photo** (meta box right below Page Header Image, same
+  spot) — the photo shown next to the "Who We Are" text (e.g. a photo of
+  your products/site). Paste a Media Library image URL. Leave blank and that
+  column is simply skipped (text goes full width).
 - ⬜ The "Didn't Find What You Were Looking For?" section at the bottom
   reuses the **same Contact Details** (Email, Address, Map embed) already
   set up in section 2 — nothing new to configure there, it'll pick those up
