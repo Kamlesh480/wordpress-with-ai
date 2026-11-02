@@ -17,24 +17,36 @@ but the placeholder is safe to use on staging to see everything working end to e
 Status: ⬜ = not yet done · ✅ = done. Update the checkboxes as you go so this stays
 a living record of what's configured on each environment.
 
+**Live-values audit (added 2026-11-02):** many placeholder values below have been replaced
+with real values pulled from the live site (shubhsanskarconcrete.com) on 22–23 Oct 2026, per
+`SSC Site Config Checklist - Live Values.xlsx`. Anything still marked **NEEDS DECISION** or
+**NEEDS INPUT** below is a real open question from that audit, not a placeholder — resolve it
+before going live, don't just paste something in to clear the checkbox.
+
 ---
 
 ## 1. Site Identity (Appearance > Customize > Site Identity)
 
-- ⬜ **Logo** — upload the actual "SS" monogram / Shubh Sanskar Concrete logo image
-  file (PNG or SVG, ~240×60px works well). Until this is set, the header falls
-  back to showing the site name as plain text, which is what's currently
-  happening. *(No text value to paste — this one needs the real logo image file
-  from whoever has the brand assets.)*
+- ⬜ **Logo** — the live site already has two real logo files (confirmed 22 Oct 2026):
+  - Header logo (dark background): `https://shubhsanskarconcrete.com/wp-content/uploads/2024/11/25.png`
+    — gold "SS" mark + white wordmark. Use this one in the theme's header logo slot;
+    set its alt text to "Shubh Sanskar Concrete" (live site has no alt text set).
+  - Footer / light-background logo: `https://shubhsanskarconcrete.com/wp-content/uploads/2024/11/bottom.png`
+    (dark version of the same mark) — only needed if the theme has a second logo slot
+    for a light background.
+  Until the header logo is set, the header falls back to showing the site name as
+  plain text.
 
-- ⬜ **Site Title**
+- ⬜ **Site Title** — confirmed against the live site (22 Oct 2026), no change from below.
   Paste this value:
   ```
   Shubh Sanskar Concrete
   ```
 
-- ⬜ **Tagline**
-  Paste this value:
+- ⬜ **Tagline** — **NEEDS DECISION**: the live site currently shows "Leading Precast
+  Concrete Products Manufacturer" in this slot, but the design and business context use
+  the line below. Confirm which one to actually use before pasting.
+  Paste this value (pending confirmation):
   ```
   Building Trust, Creating Products
   ```
@@ -46,30 +58,39 @@ filled in. This explains most of the "missing" feedback on the Header & Footer t
 **Replace the placeholder phone/email below with the real business contact details
 before this goes live** — these are safe placeholders for staging only.
 
-- ⬜ **Email**
+- ⬜ **Email** — real address confirmed on the live header/footer/`/contact/` (22 Oct 2026),
+  replacing the old placeholder.
   Paste this value:
   ```
-  info@shubhsanskarconcrete.com
+  shubhsanskarconcrete@gmail.com
   ```
 
-- ⬜ **Phone**
+- ⬜ **Phone** — real number confirmed live (22 Oct 2026), replacing the placeholder.
   Paste this value:
   ```
-  +91 98765 43210
+  +91 7042103883
   ```
 
 - ⬜ **Phone 2** *(shown as a second number in the header top bar only — the
-  footer only ever shows one phone number, matching the design)*
+  footer only ever shows one phone number, matching the design)* — real number
+  confirmed live (22 Oct 2026); note the live header actually lists this number
+  first, ahead of Phone 1 — check if that order matters once the theme is live.
   Paste this value:
   ```
-  +91 98765 43211
+  +91 9217021955
   ```
 
-- ⬜ **Address**
+- ⬜ **Address** — real address confirmed on the live footer and `/contact/` (22 Oct 2026),
+  replacing the placeholder (which had the wrong city/state entirely).
   Paste this value:
   ```
-  Precast Works, Industrial Area, Indore, Madhya Pradesh 452001
+  33, Sohna Rd, Opposite Devilal Garden, Ballabhgarh, Faridabad, Haryana 121004
   ```
+  **NEEDS DECISION:** the live `/contact/` page also lists two factory addresses (45 KM,
+  Village Gadpuri, Mathura Road, NH-19, Palwal 121102; and Village Alawalpur,
+  Amarpur-Palwal Road, Palwal 121102) not mentioned in the business context notes —
+  confirm whether either factory address should also appear in the footer or schema
+  (they're already used in section 12's office/factory list below).
 
 - ⬜ **Map embed** — go to Google Maps → search your real address → Share →
   Embed a map → copy the `<iframe ...></iframe>` code it gives you, and paste
@@ -82,30 +103,36 @@ before this goes live** — these are safe placeholders for staging only.
   *(No single safe placeholder to paste here — this one genuinely needs a real
   address's embed code, even for staging, or just leave it blank to hide the
   "Find Us" column until you have one.)*
+  **NEEDS INPUT:** the live footer already has a working Google Map embed for "Shubh
+  Sanskar Concrete (I) Pvt. Ltd." — inspect that embed on the live site, or re-generate
+  a fresh one from Google Maps for the same business listing, and paste its iframe here.
 
 ## 3. Front Page Hero (Appearance > Customize > Front Page Hero)
 
 These control the Blog Hub (`/blog/`) page 1 copy.
 
-- ⬜ **Eyebrow text**
+- ⬜ **Eyebrow text** — live `/blog/` currently has none; this is a proposed value
+  pending approval, not yet confirmed.
   Paste this value:
   ```
   THE SHUBH SANSKAR BLOG
   ```
 
 - ⬜ **Heading** — page 1's H1. If left blank, falls back to the Posts page's
-  own title, then the site name.
+  own title, then the site name. Live `/blog/` currently just shows "Blog" as its H1.
   Paste this value:
   ```
-  Concrete & Construction Insights
+  CONCRETE & CONSTRUCTION INSIGHTS
   ```
 
 - ⬜ **Intro paragraph** — short paragraph under the heading. Basic HTML links
   are allowed, so you can link words straight to your products/about/quote
-  pages (edit the `href` values to your real page URLs before using).
+  pages. Live `/blog/` currently has none (only a meta description). Draft below
+  uses the real page slugs (`/products/`, `/contact/`) and the real founding year/
+  location from the business context — **needs approval** before pasting.
   Paste this value:
   ```
-  Since 2010 we have manufactured precast concrete products for contractors and municipal projects across the region. Browse our guides below, explore our <a href="/our-products/">products</a>, or <a href="/contact-us/">get a quote</a>.
+  Since 2010 we have manufactured RCC pipes and other precast concrete products in Faridabad, Haryana. These guides cover how to choose, specify and order them. Browse our <a href="/products/">products</a> or <a href="/contact/">contact us</a> for your project.
   ```
 
 - ⬜ **Latest Posts eyebrow text** *(new field, added to fix a feedback item)* —
@@ -115,9 +142,10 @@ These control the Blog Hub (`/blog/`) page 1 copy.
   Fresh from the Casting Floor
   ```
 
-- ⬜ **Newsletter form action URL** — the submission endpoint your email service
-  (Mailchimp, Brevo, etc.) gives you. The whole newsletter block stays hidden
-  until this is set, so leave it blank if you don't have one yet.
+- ⬜ **Newsletter form action URL** — **NEEDS INPUT, currently blocked**: the live site has
+  no newsletter signup anywhere, and no email-service provider has been decided yet. The
+  whole newsletter block stays hidden until this is set, so leave it blank until a provider
+  (Mailchimp, Brevo, etc.) is chosen — or decide to skip the newsletter for launch entirely.
   Paste this value (example only — replace with your own Mailchimp/Brevo form
   action URL, this placeholder will not actually work):
   ```
@@ -125,11 +153,11 @@ These control the Blog Hub (`/blog/`) page 1 copy.
   ```
 
 - ⬜ **Secondary links line** — a short sentence with links shown near the
-  bottom of the blog listing. Basic HTML allowed; edit the `href` values to
-  your real page URLs.
+  bottom of the blog listing. Basic HTML allowed. Updated below to the real page
+  slugs (`/products/`, `/about/`, `/contact/`) — **needs approval**, draft text only.
   Paste this value:
   ```
-  Ready to order? Explore <a href="/our-products/">our precast products</a>, learn <a href="/about-us/">about Shubh Sanskar Concrete</a>, or <a href="/contact-us/">contact our team</a> for a quote.
+  Ready to order? Explore <a href="/products/">our precast products</a>, learn <a href="/about/">about Shubh Sanskar Concrete</a>, or <a href="/contact/">contact our team</a> for a quote.
   ```
 
 ## 4. Blog CTA Banners (Appearance > Customize > Blog CTA Banners)
@@ -140,10 +168,11 @@ filled in together, or that whole block stays hidden** — this is why point 4 c
 look confusing: a lone button text with no link (or vice versa) will never show up.
 
 - ⬜ **Inline banner text** — short strip shown after the featured post, on
-  page 1 of the Blog Hub only.
+  page 1 of the Blog Hub only. Live site has no CTA banners at all today. Draft
+  below deliberately avoids any price or delivery-time promise — **needs approval**.
   Paste this value:
   ```
-  Need pricing on RCC hume pipes, manhole covers, or paver blocks?
+  Need pricing on RCC hume pipes or other precast products? Send us your requirement.
   ```
 
 - ⬜ **Inline banner button text**
@@ -153,22 +182,28 @@ look confusing: a lone button text with no link (or vice versa) will never show 
   ```
 
 - ⬜ **Inline banner button link** — point this at your real contact/quote page.
-  Paste this value (edit the path if your quote page URL is different):
+  **NEEDS CONFIRMATION:** the live site has no dedicated quote page — `/contact/` is the
+  only enquiry page, and its real slug is `/contact/`, not `/contact-us/`. The audit also
+  suggests adding a UTM tag to track clicks from this specific banner.
+  Paste this value (edit if a dedicated quote page is created later):
   ```
-  /contact-us/
+  https://shubhsanskarconcrete.com/contact/?utm_source=blog&utm_medium=inline_cta
   ```
 
 - ⬜ **End-of-page CTA heading** — the larger dark banner shown at the bottom
-  of the Blog Hub, Blog Article, Category, and Author pages.
+  of the Blog Hub, Blog Article, Category, and Author pages. Wording confirmed against
+  the live-values audit's proposal (22 Oct 2026) — live site has no CTA banners today.
   Paste this value:
   ```
   Have a Project to Discuss?
   ```
 
-- ⬜ **End-of-page CTA description**
+- ⬜ **End-of-page CTA description** — **needs approval**: the original design copy
+  promised a price and delivery date; the draft below deliberately drops that promise
+  since neither is confirmed yet.
   Paste this value:
   ```
-  Tell us about your site requirements and our team will help you choose the right precast products, grades, and delivery timeline.
+  Tell us the product, grade and quantity you need and our team will get back to you.
   ```
 
 - ⬜ **End-of-page CTA button text**
@@ -178,9 +213,11 @@ look confusing: a lone button text with no link (or vice versa) will never show 
   ```
 
 - ⬜ **End-of-page CTA button link** — same real contact/quote page as above.
-  Paste this value (edit the path if different):
+  **NEEDS CONFIRMATION** — see the Inline banner button link note above; same real slug
+  and UTM-tagging logic applies, with a different UTM tag to tell the two banners apart.
+  Paste this value:
   ```
-  /contact-us/
+  https://shubhsanskarconcrete.com/contact/?utm_source=blog&utm_medium=end_cta
   ```
 
 ## 5. Menus (Appearance > Menus)
@@ -189,36 +226,50 @@ Create these three menus if they don't exist, add items, then assign each to its
 theme location at the bottom of the menu editor (find this via the "Manage
 Locations" tab, or the dropdown at the bottom of the menu editor screen).
 
-- ⬜ **Primary Navigation** → location: **Primary**. Shown in the header.
-  Suggested menu items, in this order (use "Custom Links" or your existing
-  Pages — edit each URL to match your real pages):
+- ⬜ **Primary Navigation** → location: **Primary**. Shown in the header. The live site's
+  actual menu structure is already built (confirmed 22 Oct 2026) — reproduce it rather
+  than the guesses below (real slugs, real 11-item Products dropdown, and a real
+  **Areas We Serve** top-level item the original design mockup left out by mistake but
+  the live site keeps):
   ```
   Home            → /
-  About Us        → /about-us/
-  Our Products    → /our-products/   (add sub-items under this one for each product line, e.g. RCC Hume Pipes, Manhole Covers, Paver Blocks, Cement Poles)
+  About Us        → /about/
+  Products        → /products/   (dropdown, 11 real sub-items: /rcc-pipes/, /rcc-manhole-system/,
+                     /sfrc-manhole-cover/, /concrete-drain-covers/, /cement-paver-blocks/,
+                     /concrete-kerb-stone/, /precast-drain/, /concrete-road-barriers/,
+                     /rcc-tree-guards/, /garden-bench/, /customized-products/)
+  Areas We Serve  → /areas-we-serve/
+  Contact         → /contact/
   Blog            → /blog/
-  Contact Us      → /contact-us/
   ```
-  The current page highlights itself automatically in gold — no manual setup
-  needed for that part.
+  **Note:** the live order is Contact then Blog; the original Figma design showed Blog
+  before Contact — no decision has been made on which order to keep, confirm before
+  building this menu. The current page highlights itself automatically in gold — no
+  manual setup needed for that part.
 
 - ⬜ **Footer Links** → location: **Footer**. Populates the "Important Links"
-  footer column. The same 5 items as Primary Navigation above is a reasonable
-  default — you can literally duplicate that menu and rename the copy, then
-  assign the copy to the Footer location.
+  footer column. **NEEDS DECISION:** the live footer currently repeats the entire
+  primary menu structure, including all 11 product sub-items, but the design mockup's
+  footer only shows 5 short links with no product sub-items — decide which to use rather
+  than assuming either is correct. The live footer also has one extra link,
+  **RCC Hume Pipe** → `/rcc-hume-pipe/`, that isn't in any menu — check whether that page
+  is actually live or just redirects before deciding whether to carry it over.
 
 - ⬜ **Social Links** → location: **Social**. Each item's URL determines its
   icon automatically (Facebook, Instagram, LinkedIn, YouTube, WhatsApp, etc. —
-  anything else falls back to a generic chain-link icon). Add one item per
-  real social profile your business has, for example:
+  anything else falls back to a generic chain-link icon). Real profiles confirmed live
+  (22 Oct 2026):
   ```
-  Facebook    → https://facebook.com/shubhsanskarconcrete
-  Instagram   → https://instagram.com/shubhsanskarconcrete
-  LinkedIn    → https://linkedin.com/company/shubhsanskarconcrete
-  WhatsApp    → https://wa.me/919876543210
+  Facebook    → https://www.facebook.com/shubhsanskarconcrete
+  Instagram   → https://www.instagram.com/shubhsanskarconcrete/
+  LinkedIn    → https://www.linkedin.com/company/shubhsanskarconcrete/
+  X (Twitter) → https://twitter.com/sscconcrete   NEEDS DECISION: an older post on the
+                site instead links to twitter.com/shubhsanskarc — confirm which handle
+                is actually current before using either.
   ```
-  Only add the ones you actually have — don't paste placeholder social links
-  live, since they'll be public-facing broken links.
+  No YouTube channel found live — leave it out unless one actually exists. No public
+  WhatsApp number was found on the live site either (see Contact Details → WhatsApp,
+  NEEDS INPUT in section 8) — don't invent one.
 
 **Mobile note:** the primary menu now has a hamburger toggle below 720px width
 (fixed in this round of changes) — no config needed, just confirm it after
@@ -232,37 +283,78 @@ Delhi, Uttar Pradesh), not the **topic-based** categories the design and the blo
 templates assume. This is why category tags/breadcrumbs/dropdowns show the wrong
 thing everywhere on the live site.
 
+**Live audit update (22 Oct 2026):** a full audit of the live site's 43 published posts
+(all by one author) replaced the guessed topic-category list below with 5 categories
+matched to the actual product lines and existing post content, plus a post-by-post
+mapping for every one of the 43 posts.
+
+**✅ Approved by the user, 2026-11-02** — both the 5-category list and the full post
+mapping in `SSC Site Config Checklist - Live Values.xlsx` (tab "6 Post Mapping") are
+confirmed. What's left is the mechanical work of actually creating these categories and
+re-assigning all 43 posts in wp-admin (or via wp-cli) on each environment — still
+tracked with ⬜ below per environment, plus the 37-vs-36 post-count discrepancy noted
+below, which should be resolved during that work rather than before it.
+
 - ⬜ Create these topic categories under **Posts > Categories > Add New Category**
-  (if they don't already exist alongside the location ones):
+  (if they don't already exist alongside the location ones) — **supersedes** the
+  category names originally guessed for this section:
   ```
-  Name: RCC Hume Pipes
+  Name: RCC & Hume Pipes
   Slug: rcc-hume-pipes
-  Description: Grade selection, jointing method, and handling guidance for RCC hume pipes.
+  Covers: NP2/NP3/NP4 pipes, specifications, price lists, testing, culverts, manufacturing
+  Posts assigned: 20
+  Related product page: https://shubhsanskarconcrete.com/rcc-pipes/
 
-  Name: Manhole Covers & Systems
-  Slug: manhole-covers-systems
-  Description: Frame and cover selection, chamber depths, and municipal specification notes.
+  Name: Manhole & Drain Covers
+  Slug: manhole-drain-covers
+  Covers: SFRC and concrete manhole covers, drain covers, saucer drain
+  Posts assigned: 9
+  Related product page: https://shubhsanskarconcrete.com/sfrc-manhole-cover/
 
-  Name: Cement Poles
-  Slug: cement-poles
-  Description: Pole sections, load ratings, and installation practice for rural and urban lines.
+  Name: Paver Blocks & Kerb Stones
+  Slug: paver-blocks-kerb-stones
+  Covers: Interlocking pavers, paver price and design, kerb stones, interlocking tiles
+  Posts assigned: 7
+  Related product page: https://shubhsanskarconcrete.com/cement-paver-blocks/
 
-  Name: Paver Blocks
-  Slug: paver-blocks
-  Description: Interlocking block grades, laying patterns, and site preparation guidance.
+  Name: Road Safety & Street Products
+  Slug: road-safety-street-products
+  Covers: Jersey barriers, bollards, tree guards
+  Posts assigned: 3
+  Related product page: https://shubhsanskarconcrete.com/concrete-road-barriers/
 
-  Name: Industry & Compliance
-  Slug: industry-compliance
-  Description: IS codes, testing standards, and quality control across our casting yard.
+  Name: Precast Basics & Guides
+  Slug: precast-basics-guides
+  Covers: General precast/RCC explainers, HSN code, company price list — posts that
+  don't belong to one specific product
+  Posts assigned: 5
+  Related product page: https://shubhsanskarconcrete.com/products/
   ```
-  (These descriptions double as the "Description" field mentioned below — paste
-  each one into its matching category's Description box.)
+
+- ⬜ Keep these existing live categories rather than deleting them:
+  ```
+  Blogs (id 6, 36 posts)            → keep, demote to SECOND category on every post
+                                       (the topic category goes first)
+  Areas we Serve (id 296, 0 posts)  → keep as the parent of the location categories;
+                                       never set as a post's first category
+  Haryana / Delhi / Uttar Pradesh
+    (ids 293/294/295, 3/2/2 posts)  → keep, with the topic category first and the
+                                       location category second, for the 7 real
+                                       service-area posts
+  Uncategorized (id 1, 0 posts)     → leave unused
+  ```
 
 - ⬜ Re-assign each blog post to its correct **topic** category (not a location
   category) as the primary/first category — the theme always uses a post's
   FIRST assigned category for its tag, breadcrumb, and card label. Go to
   **Posts > All Posts**, open each post, and under "Categories" check the
   correct topic box (and uncheck the location-only one if it's currently first).
+  The full post-by-post mapping (one row per live post URL → topic category →
+  cluster role) is in `SSC Site Config Checklist - Live Values.xlsx`, tab
+  **"6 Post Mapping"** — don't re-derive this from scratch, that mapping is the
+  source of truth once approved. Note: it flags one audit URL that couldn't be
+  matched against the 36 posts currently in "Blogs" (37 audit URLs vs. 36 live
+  posts) — resolve that discrepancy before relying on the mapping as complete.
 
 - ⬜ Decide whether "Areas We Serve" / location categories should stay as a
   *separate* taxonomy or page structure outside the blog, rather than mixed
@@ -273,80 +365,73 @@ thing everywhere on the live site.
 ## 7. Author Profiles (Users > Profile, for each author)
 
 Scroll to the **"Blog Hub Author Profile"** section on each author's profile
-screen (Users > All Users > click a name > scroll down). Example values below
-are for the demo author "Ramesh Patidar" used during development — replace the
-name/details with your real author's information.
+screen (Users > All Users > click a name > scroll down).
+
+**Live audit update (22–23 Oct 2026):** there is exactly one author with posts on the
+live site — **Shubhankar Gupta** (login `seo_admnuser`, nickname "SSC", 43 posts). Two
+other admin accounts have no posts. The example values originally in this section were
+for a demo author ("Ramesh Patidar") used during development — replace them with the
+real values below once each open decision is resolved; several genuinely need a human
+call, not a guess.
+
+- ⬜ **Author archive URL — NEEDS ACTION:** WordPress builds the author archive URL from
+  the login username, which is `seo_admnuser` here — that login name would be publicly
+  exposed at `/author/seo_admnuser/`. Either hide author archives in Yoast, or have the
+  developer change the author slug, before this goes live.
 
 - ⬜ **Title**
-  Paste this value:
+  Paste this value (proposed, matches the existing Yoast author title closely):
   ```
-  Site Engineer, Quality Control
-  ```
-
-- ⬜ **Pull quote**
-  Paste this value:
-  ```
-  Half the site problems we see were decided on paper, weeks before the pour.
+  Manufacturer of RCC Pipes, Manhole Covers and Precast Concrete Products
   ```
 
-- ⬜ **LinkedIn URL**
-  Paste this value (edit to the real profile URL):
-  ```
-  https://www.linkedin.com/in/ramesh-patidar
-  ```
+- ⬜ **Pull quote** — **NEEDS INPUT**, not in the live profile today. Do not invent one —
+  leave blank until a real quote from Shubhankar is provided.
+
+- ⬜ **LinkedIn URL** — **NEEDS DECISION**: the live profile's LinkedIn field currently
+  points at the company page (`https://www.linkedin.com/company/shubhsanskarconcrete/`),
+  not a personal profile. Decide whether to use a personal LinkedIn URL or keep the
+  company page here.
 
 - ⬜ **Expertise tags** — comma-separated.
-  Paste this value:
+  Paste this value (based on the 5 topic categories in section 6):
   ```
-  RCC Hume Pipes, Manhole Systems, IS Code Compliance
+  RCC pipes, manhole covers, paver blocks
   ```
 
-- ⬜ **"At a glance" facts** — one short fact per line.
-  Paste this value:
+- ⬜ **"At a glance" facts / Extra profile stats** — one per line, as `value | label`.
+  Only one stat has a defensible number so far — **do not invent the others**:
   ```
-  Diploma in Civil Engineering
-  Certified on IS 458 & IS 1726 testing
-  Covers Indore – Bhopal sites
-  Joined Shubh Sanskar in 2013
+  2010 | Company Established
   ```
+  "Deliveries overseen" — **NEEDS INPUT, blocked**: no confirmed figure exists; leave
+  this stat out entirely rather than guessing a number.
 
 - ⬜ **"Request a Quote" button link** — leave blank to hide the button.
-  Paste this value (edit the path if different):
+  Paste this value:
   ```
-  /contact-us/
+  /contact/
   ```
 
 - ⬜ **Public contact email** *(new field, added to fix a privacy issue)* —
   **must be set**, or the author page falls back to the site-wide Customizer
   contact email. It will NEVER show the author's real WordPress login email.
-  Paste this value (edit to the real public email for this author):
-  ```
-  ramesh@shubhsanskarconcrete.com
-  ```
-
-- ⬜ **Extra profile stats** *(new field, added to fix a feedback item)* — one
-  per line, as `value | label`.
-  Paste this value:
-  ```
-  13 | Years on Site
-  400+ | Site Deliveries Overseen
-  ```
+  **NEEDS DECISION** between the two real addresses found live — the account's actual
+  login email (`seo@shubhsanskarconcrete.com`) or the site-wide contact address
+  (`shubhsanskarconcrete@gmail.com`, see section 2). Pick one rather than defaulting.
 
 - ⬜ **Biographical Info** (WordPress's own built-in field, same screen) — the
-  author's actual bio, shown in the About section. Feedback noted this
-  currently shows the *company tagline* instead of a real author bio on the
-  live site — make sure each author has their own bio text here, not shared
-  company copy.
-  Paste this value:
-  ```
-  Ramesh joined Shubh Sanskar Concrete in 2013 and now leads site quality control across our RCC hume pipe and manhole system deliveries. He has walked drainage lines from Indore to Bhopal and signs off every batch before it leaves the yard.
-  ```
+  author's actual bio, shown in the About section. **Needs a rewrite, not just a
+  paste:** the live bio (and the matching Yoast author description) currently opens
+  with "India's leading manufacturers of RCC Hume Pipes, SFRC Manhole Chamber, cement
+  drain covers..." — the business context explicitly bars pan-India leadership claims
+  like this, so this can't just be copied over as-is. Write a replacement bio for
+  Shubhankar personally (not shared company copy) before pasting anything here.
 
-- ⬜ **Gravatar** — WordPress has no built-in photo upload; author photos come
-  from Gravatar (gravatar.com, tied to the account's email) or an avatar
-  plugin. Without one, a generic grey silhouette shows. *(No text value to
-  paste — create a free account at gravatar.com using this author's exact
-  WordPress login email, upload a photo there.)*
+- ⬜ **Gravatar / profile photo** — **NEEDS INPUT**: not checked yet whether a photo or
+  Gravatar already exists for this account. WordPress has no built-in photo upload;
+  author photos come from Gravatar (gravatar.com, tied to the account's email) or an
+  avatar plugin. Without one, a generic grey silhouette shows.
 
 ## 8. Widgets (Appearance > Widgets)
 
@@ -361,34 +446,41 @@ Both are optional — leave empty if you don't need them yet.
   ```
   <div style="text-align:center;padding:16px;border:1px solid #ddd;">
     <p>Need a custom quote?</p>
-    <a href="/contact-us/">Talk to our team →</a>
+    <a href="/contact/">Talk to our team →</a>
   </div>
   ```
+- ⬜ **Chat button** — the live site already runs the "Social Chat" plugin (confirmed
+  22 Oct 2026); keep it if it fits the new design. **NEEDS INPUT:** its WhatsApp number
+  isn't public anywhere on the live site — get the real number before configuring it on
+  this theme rather than reusing a placeholder.
 
 ## 9. Settings > Reading
 
-- ⬜ **Your homepage displays** → select:
+**Live audit update (confirmed in wp-admin, 23 Oct 2026): all four settings below are
+already correctly set on the live site — no change needed here**, only listed for
+reference/consistency with the local environment.
+
+- ✅ **Your homepage displays** → confirmed set to:
   ```
   A static page
   ```
-- ⬜ **Homepage** → **until the new homepage (section 10 below) is reviewed
-  and approved, leave this selecting the existing Elementor-built homepage.**
-  The theme now also has its own real homepage (`front-page.php`) ready to go
-  — see the big warning at the top of section 10 for exactly how and when to
-  switch this over. Do not switch it over as part of routine config work.
-- ⬜ **Posts page** → select (or create) the page that should host the Blog
-  Hub design — e.g. a page simply titled "Blog". This makes it render at
-  whatever that page's URL is (typically `/blog/`), using the theme's
-  `home.php` (see the theme's own `.serena/memories/project_overview.md` for
-  why that file, not `front-page.php`, is the one that matters — and note
-  `home.php` and `front-page.php` are two different files serving two
-  different purposes, both explained there).
-- ⬜ **Blog pages show at most** → a number, e.g.
+- ✅ **Homepage** → confirmed set to the existing Elementor-built page, titled "Home".
+  **Until the new homepage (section 10 below) is reviewed and approved, leave this as
+  is.** The theme now also has its own real homepage (`front-page.php`) ready to go —
+  see the big warning at the top of section 10 for exactly how and when to switch this
+  over. Do not switch it over as part of routine config work.
+- ✅ **Posts page** → confirmed set to the page titled "Blog" (renders at `/blog/`),
+  using the theme's `home.php` (see the theme's own
+  `.serena/memories/project_overview.md` for why that file, not `front-page.php`, is
+  the one that matters — and note `home.php` and `front-page.php` are two different
+  files serving two different purposes, both explained there).
+- ✅ **Blog pages show at most** → confirmed set to:
   ```
-  12
+  10
   ```
   This controls posts per page on Category and Author archive pages (the main
-  Blog Hub listing always shows 12 regardless of this setting).
+  Blog Hub listing always shows 12 regardless of this setting). Keep this value unless
+  the theme design calls for a different number.
 
 ## 10. Homepage (Appearance > Customize > Homepage, plus three new content areas in the wp-admin sidebar)
 
@@ -426,8 +518,10 @@ effect on the live site's real homepage.
 - ⬜ **About Us teaser text** — basic HTML links allowed.
   Paste this value:
   ```
-  In the world of precast concrete industries, Shubh Sanskar is a trusted Indian Brand since 2010. We as a company started with one RCC pipe manufacturing plant and now striving and thriving in many more domains of the concrete industry. <a href="/about-us/">Read more.</a>
+  In the world of precast concrete industries, Shubh Sanskar is a trusted Indian Brand since 2010. We as a company started with one RCC pipe manufacturing plant and now striving and thriving in many more domains of the concrete industry. <a href="/about/">Read more.</a>
   ```
+  *(link slug corrected to `/about/` per the live menu audit, 22 Oct 2026 — the live
+  page is not at `/about-us/`)*
 - ⬜ **About Us gallery images 1–4** — four square-ish photos shown in a 2×2
   grid next to the About teaser text.
 - ⬜ **Reason 1–4 — icon / title / description** (the "Why Choose Us" row):
@@ -460,9 +554,10 @@ effect on the live site's real homepage.
   Get in touch
   ```
 - ⬜ **End-of-page CTA button link** — point this at your real contact page.
-  Paste this value (edit the path if different):
+  Paste this value (corrected to the real live slug, `/contact/`, per the menu audit,
+  22 Oct 2026 — not `/contact-us/`):
   ```
-  /contact-us/
+  /contact/
   ```
 - ⬜ **End-of-page CTA background image** — optional; leave blank for a plain
   navy background.
@@ -563,8 +658,12 @@ fields in a box on the right):
   per location, as `Label | Address | Google Maps embed URL`. Get the embed
   URL from Google Maps → Share → Embed a map → copy just the `src="..."`
   value out of the `<iframe>` code (not the whole iframe tag, just that one
-  URL).
-  Paste this value (edit the addresses/URLs to your real ones):
+  URL). **Confirmed against the live audit (22 Oct 2026, tab "1-2 Logo and Contact")
+  — addresses below match the real Office and two Factory locations found on the live
+  `/contact/` page**, but the real embed URLs still need to be generated (the audit
+  found a working map embed already exists live for "Shubh Sanskar Concrete (I) Pvt.
+  Ltd." — reuse that listing when generating each embed).
+  Paste this value (addresses confirmed; replace each embed URL with a real one):
   ```
   Office | 33, Sohna Rd, Opposite Devilal Garden, Ballabgarh, Faridabad, 121004, Haryana | https://www.google.com/maps/embed?pb=PASTE_YOUR_REAL_EMBED_PARAMETERS_HERE
   Factory | 45 KM, Village Gadpuri, Mathura Road, NH-19, Palwal, 121102, Haryana | https://www.google.com/maps/embed?pb=PASTE_YOUR_REAL_EMBED_PARAMETERS_HERE
