@@ -71,3 +71,13 @@ reusing this file.
 files (e.g. `*.sse.cache.php`, `.htaccess`, `index.php` placeholders). These are transient and
 churn on every staging run — gitignored, not project source. If it reappears in `git status`,
 that's expected; just confirm `.gitignore` still excludes `wp-content/wp-staging/`.
+
+## Overlapping WhatsApp button on staging/live is a plugin, not the theme
+
+The live/staging site has the **Social Chat** plugin (`wp-whatsapp-chat`, QuadLayers, markup
+class `qlwapp`) active. It renders its own green WhatsApp pill fixed at the bottom-right,
+directly on top of the theme's `.bh-floating-actions` stack (footer.php / components.css),
+which looks like a theme overlap bug. The theme's own stack (WhatsApp circle above Call
+circle, 12px gap) only shows the WhatsApp button when the Customizer WhatsApp number is set;
+with it blank, only the Call circle renders. Fix is config: deactivate Social Chat and fill
+the WhatsApp number field — not a CSS change.
