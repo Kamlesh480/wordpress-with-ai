@@ -107,7 +107,13 @@ This project has a running local Docker WordPress stack (`bloghub_wp`, `bloghub_
 
 ## 4. Rebuild `blog-hub.zip`
 
-The zip is git-ignored and always rebuilt fresh — never hand-edited or patched in place:
+The zip is git-ignored on purpose and always rebuilt fresh — never hand-edited or patched in
+place, and never committed to git even though it's small enough to fit. It's a generated build
+artifact that's 100% derivable from `wp-content/themes/blog-hub-new/`, which is already tracked;
+committing it would create a second source of truth that silently goes stale the moment someone
+edits the theme and forgets to re-run this step, and binary zip diffs are meaningless in code
+review anyway. The fix for "the zip might go stale" is doing this step every time, not
+committing the output.
 
 ```bash
 rm -f /Users/kamlesh/Documents/dev/wordpress/blog-hub.zip

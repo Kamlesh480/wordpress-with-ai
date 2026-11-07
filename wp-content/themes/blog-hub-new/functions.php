@@ -19,6 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 define( 'BLOG_HUB_VERSION', '1.0.0' );
 
 require_once get_template_directory() . '/inc/main-site.php';
+require_once get_template_directory() . '/inc/site-header-footer.php';
 
 /**
  * Theme setup.
@@ -720,6 +721,17 @@ function blog_hub_customize_register( $wp_customize ) {
 			'description' => __( 'Paste a Google Maps embed code (the <iframe ...> from Maps\' Share > Embed a map). Leave blank to hide the "Find Us" footer column.', 'blog-hub' ),
 			'section'     => 'blog_hub_contact',
 			'type'        => 'textarea',
+		)
+	);
+
+	$wp_customize->add_setting( 'blog_hub_whatsapp_number', array( 'default' => '' ) );
+	$wp_customize->add_control(
+		'blog_hub_whatsapp_number',
+		array(
+			'label'       => __( 'WhatsApp number', 'blog-hub' ),
+			'description' => __( 'Digits only, with country code, e.g. 919217021955. Used by the floating WhatsApp button and mobile contact bar.', 'blog-hub' ),
+			'section'     => 'blog_hub_contact',
+			'type'        => 'text',
 		)
 	);
 

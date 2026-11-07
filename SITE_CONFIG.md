@@ -107,6 +107,14 @@ before this goes live** — these are safe placeholders for staging only.
   Sanskar Concrete (I) Pvt. Ltd." — inspect that embed on the live site, or re-generate
   a fresh one from Google Maps for the same business listing, and paste its iframe here.
 
+- ⬜ **WhatsApp number** — digits only, with country code, no spaces or `+`.
+  Powers the floating WhatsApp button (every page, bottom-right) and the
+  mobile sticky Call/WhatsApp bar. Leave blank to hide both.
+  Paste this value (edit to your real WhatsApp Business number):
+  ```
+  919217021955
+  ```
+
 ## 3. Front Page Hero (Appearance > Customize > Front Page Hero)
 
 These control the Blog Hub (`/blog/`) page 1 copy.
@@ -669,6 +677,42 @@ fields in a box on the right):
   Factory | 45 KM, Village Gadpuri, Mathura Road, NH-19, Palwal, 121102, Haryana | https://www.google.com/maps/embed?pb=PASTE_YOUR_REAL_EMBED_PARAMETERS_HERE
   Factory | Village Alawalpur, Amarpur-Palwal road, Palwal, 121102, Haryana | https://www.google.com/maps/embed?pb=PASTE_YOUR_REAL_EMBED_PARAMETERS_HERE
   ```
+
+## 13. Site-wide Header & Footer (Nov 2026 redesign)
+
+As of this round, **every page on the site shares one header and one footer**
+(no per-page variants) — matching the latest design the stakeholder approved
+(`SSC Header.dc.html` / `SSC Footer.dc.html`). Most of it pulls from fields
+you've already filled in above; a few pieces are new or work differently from
+before.
+
+- ⬜ **Primary Navigation menu** (Appearance > Menus) is no longer used to
+  build the main nav — the header now has its own fixed structure (Home,
+  About Us, Products, Areas We Serve, Contact, Blog) to match the design
+  exactly. If you need to rename or reorder these, that's a code change, not
+  a wp-admin setting — ask your developer.
+- ⬜ **Products** and **Areas We Serve** dropdowns show a hardcoded list of
+  categories/cities with links to pages on the **live site**
+  (`shubhsanskarconcrete.com/rcc-pipes/`, `/areas-we-serve/faridabad/`, etc.)
+  — these pages don't exist on this WordPress site yet. This was a deliberate
+  choice to match the design immediately rather than block on building those
+  pages first. **Action needed later:** once those product/area pages exist
+  (here or still on the live site), tell your developer to update the link
+  list in `inc/site-header-footer.php` (`blog_hub_header_product_categories()`
+  and `blog_hub_header_areas()`).
+- ⬜ **Blog dropdown** (header) and **"From the Blog"** column (footer) *are*
+  fully dynamic — nothing to configure, they automatically show your most
+  recent real posts and categories.
+- ⬜ **Call Now button** (header, floating button, footer, sticky mobile bar)
+  all use the same **Phone** / **Phone 2** fields from section 2 above —
+  nothing new to set.
+- ⬜ **Request a Quote** button (the strip just above the footer, sitewide)
+  links to whichever page uses the **"Contact Us"** template — make sure
+  that page is set up per section 12 above.
+- ⬜ **Floating WhatsApp/Call buttons** and the **mobile sticky contact bar**
+  both depend on the new **WhatsApp number** field in section 2 — fill that
+  in to show the WhatsApp button/bar; leave it blank to show Call-only (or
+  hide the floating buttons entirely if Phone is also blank).
 
 ---
 
