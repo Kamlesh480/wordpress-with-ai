@@ -41,7 +41,11 @@ CTA — see mem:theme_architecture "Main-site pages" for the full breakdown), bu
 homepage. As of 2026-10-27 it is built and tested locally but is **NOT live** — Settings >
 Reading → Homepage must stay pointed at the existing Elementor page until the new homepage is
 reviewed and the switch is explicitly approved; `SITE_CONFIG.md` section 10 has a loud warning
-about this exact point. `home.php` (Blog Hub) and `front-page.php` (main homepage) are two
+about this exact point. **Correction (2026-11-14):** keeping Reading pointed at the Elementor
+page does NOT protect it — WordPress always uses `front-page.php` for the front page when the
+file exists, so the new homepage goes live the moment this theme is active (confirmed on
+staging). Production upload must wait for homepage approval, or front-page.php needs an
+explicit opt-in switch first. `home.php` (Blog Hub) and `front-page.php` (main homepage) are two
 separate files serving two separate, unrelated purposes — don't conflate them.
 
 ## Local dev stack

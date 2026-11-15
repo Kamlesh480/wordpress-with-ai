@@ -81,3 +81,35 @@ which looks like a theme overlap bug. The theme's own stack (WhatsApp circle abo
 circle, 12px gap) only shows the WhatsApp button when the Customizer WhatsApp number is set;
 with it blank, only the Call circle renders. Fix is config: deactivate Social Chat and fill
 the WhatsApp number field — not a CSS change.
+
+## `.bh-back-to-top` class clash (fixed 2026-11-15)
+
+`article.css` (enqueued on every page, not just single posts) styles `.bh-back-to-top` as a
+fixed floating button with `opacity: 0` until `.is-visible`. The footer reused the same class
+but toggled the `hidden` attribute instead, so the footer button was permanently invisible.
+Footer button is now `.bh-footer__totop`. Don't reuse class names across article.css and
+components.css — both load globally.
+
+## Sticky table headers inside core table blocks
+
+Core's `.wp-block-table` wrapper has `overflow-x: auto`, which silently disables
+`position: sticky` on `thead th`. article.css sets it to `overflow: visible` ≥768px. Sticky
+offsets must clear the fixed header (64px in scrolled state, +32px with the admin bar).
+
+## Extra elements on staging that come from plugins, not the theme
+
+Green bottom-left call button = **Call Now Button** plugin (script from callnowbutton.com, not
+visible in server HTML). "Related Posts:" thumbnail strip inside articles = **YARPP**. Both
+should be deactivated; the theme has its own equivalents.
+
+## Don't use the_custom_logo() inside the theme's brand links
+`the_custom_logo()` outputs its own `<a>`; the theme already wraps the logo in `<a class="bh-brand">` / `.bh-footer__logo-link`, so it gives nested anchors (invalid HTML, which browsers split apart). Use `blog_hub_logo_img()` instead. Also: without `add_theme_support( 'custom-logo' )` the Customizer has no Logo field and `has_custom_logo()` is always false, which is why the logo never showed on staging before v1.0.2.
+
+## get_the_category() is alphabetical, not "first ticked"
+`get_the_category()` returns terms sorted by name, so `$cats[0]` is NOT the main category ("Blogs" or "Delhi" beat every topic name). Always use `blog_hub_primary_category( $post_id )` (functions.php, v1.0.3): Yoast/Rank Math Primary if set → first category that isn't blogs/uncategorized/areas-we-serve or a child of areas-we-serve → `$cats[0]`. Used by content-card, content-single, home.php featured, related-posts, breadcrumbs and the breadcrumb JSON-LD.
+
+## Never put HTML tags in Customizer control descriptions
+WP prints `description` unescaped. The Map embed control's text mentioned `<iframe ...>`, which rendered a real empty iframe that covered the textarea, so nothing could be pasted on staging (fixed v1.0.4). Write "embed code" in words instead.
+
+## Staging/live permalinks contain %category% — never bulk-change Yoast Primary
+Post URLs look like `/blogs/<slug>/` (Yoast Primary category in the permalink). Most posts have Yoast Primary = Blogs or a location; changing it changes live URLs. `blog_hub_primary_category()` (v1.0.6) only trusts a Yoast Primary that is a topic, so labels show the topic without touching Primary. Staging got its topic categories assigned 15 Nov 2026 via the REST API from the logged-in wp-admin tab (categories 299/300/302/303/304); production not yet.

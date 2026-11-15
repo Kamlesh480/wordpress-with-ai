@@ -99,10 +99,10 @@ $latest_query = new WP_Query(
 				</a>
 				<div class="bh-featured__body">
 					<?php
-					$cats = get_the_category( $featured_id );
-					if ( ! empty( $cats ) ) :
+					$featured_cat = blog_hub_primary_category( $featured_id );
+					if ( $featured_cat ) :
 						?>
-						<a class="bh-cat-tag" href="<?php echo esc_url( get_category_link( $cats[0] ) ); ?>"><?php echo strtoupper( $cats[0]->name ); // phpcs:ignore WordPress.Security.EscapeOutput -- get_the_category() names are pre-escaped for display. ?></a>
+						<a class="bh-cat-tag" href="<?php echo esc_url( get_category_link( $featured_cat ) ); ?>"><?php echo strtoupper( $featured_cat->name ); // phpcs:ignore WordPress.Security.EscapeOutput -- get_the_category() names are pre-escaped for display. ?></a>
 					<?php endif; ?>
 					<h2 class="bh-featured__title"><a href="<?php echo esc_url( get_permalink( $featured_id ) ); ?>"><?php echo esc_html( get_the_title( $featured_id ) ); ?></a></h2>
 					<p class="bh-featured__excerpt"><?php echo esc_html( wp_trim_words( get_the_excerpt( $featured_id ), 28 ) ); ?></p>

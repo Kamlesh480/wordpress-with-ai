@@ -62,6 +62,14 @@ function blog_hub_header_area_url( $city ) {
 	return blog_hub_live_base_url() . 'areas-we-serve/' . sanitize_title( $city ) . '/';
 }
 
+/**
+ * URL of a product category page, or of one of its sub-types when
+ * $sub_slug is given (e.g. /rcc-pipes/np2-pipes/).
+ */
+function blog_hub_product_url( $slug, $sub_slug = '' ) {
+	return blog_hub_live_base_url() . $slug . '/' . ( $sub_slug ? $sub_slug . '/' : '' );
+}
+
 function blog_hub_header_products_url() {
 	return blog_hub_live_base_url() . 'products/';
 }
@@ -80,11 +88,11 @@ function blog_hub_header_nav_items() {
 
 	return array(
 		array( 'key' => 'home', 'label' => __( 'Home', 'blog-hub' ), 'url' => home_url( '/' ), 'has_dropdown' => false, 'current' => 'home' === $current ),
-		array( 'key' => 'about', 'label' => __( 'About Us', 'blog-hub' ), 'url' => blog_hub_find_page_url( 'template-about.php' ), 'has_dropdown' => false, 'current' => 'about' === $current ),
 		array( 'key' => 'products', 'label' => __( 'Products', 'blog-hub' ), 'url' => blog_hub_header_products_url(), 'has_dropdown' => true, 'current' => 'products' === $current ),
 		array( 'key' => 'areas', 'label' => __( 'Areas We Serve', 'blog-hub' ), 'url' => blog_hub_header_areas_url(), 'has_dropdown' => true, 'current' => 'areas' === $current ),
-		array( 'key' => 'contact', 'label' => __( 'Contact', 'blog-hub' ), 'url' => blog_hub_find_page_url( 'template-contact.php' ), 'has_dropdown' => false, 'current' => 'contact' === $current ),
+		array( 'key' => 'about', 'label' => __( 'About Us', 'blog-hub' ), 'url' => blog_hub_find_page_url( 'template-about.php' ), 'has_dropdown' => false, 'current' => 'about' === $current ),
 		array( 'key' => 'blog', 'label' => __( 'Blog', 'blog-hub' ), 'url' => blog_hub_find_blog_url(), 'has_dropdown' => true, 'current' => 'blog' === $current ),
+		array( 'key' => 'contact', 'label' => __( 'Contact', 'blog-hub' ), 'url' => blog_hub_find_page_url( 'template-contact.php' ), 'has_dropdown' => false, 'current' => 'contact' === $current ),
 	);
 }
 
@@ -150,14 +158,43 @@ function blog_hub_render_header_dropdown( $key ) {
 	switch ( $key ) {
 		case 'products':
 			?>
+			<?php $bh_cats = blog_hub_header_product_categories(); ?>
 			<div class="bh-dropdown bh-dropdown--products" id="bh-dd-products" data-bh-dropdown>
-				<ul class="bh-dropdown__cats">
-					<?php foreach ( blog_hub_header_product_categories() as $cat ) : ?>
-						<li>
-							<a href="<?php echo esc_url( blog_hub_live_base_url() . $cat['slug'] . '/' ); ?>"><?php echo esc_html( $cat['name'] ); ?></a>
-						</li>
-					<?php endforeach; ?>
-				</ul>
+				<div class="bh-dropdown__body">
+					<ul class="bh-dropdown__cats">
+						<?php foreach ( $bh_cats as $i => $cat ) : ?>
+							<li>
+								<a class="bh-dropdown__cat<?php echo 0 === $i ? ' is-active' : ''; ?>" href="<?php echo esc_url( blog_hub_product_url( $cat['slug'] ) ); ?>" data-bh-cat="<?php echo esc_attr( $cat['slug'] ); ?>">
+									<span><?php echo esc_html( $cat['name'] ); ?></span>
+									<?php if ( ! empty( $cat['subs'] ) ) : ?>
+										<i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+									<?php endif; ?>
+								</a>
+							</li>
+						<?php endforeach; ?>
+					</ul>
+					<div class="bh-dropdown__subs">
+						<?php foreach ( $bh_cats as $i => $cat ) : ?>
+							<div class="bh-dropdown__subpanel" data-bh-subpanel="<?php echo esc_attr( $cat['slug'] ); ?>"<?php echo 0 === $i ? '' : ' hidden'; ?>>
+								<span class="bh-dropdown__subhead"><?php echo esc_html( $cat['name'] ); ?></span>
+								<?php if ( ! empty( $cat['subs'] ) ) : ?>
+									<ul>
+										<?php foreach ( $cat['subs'] as $sub ) : ?>
+											<li><a href="<?php echo esc_url( blog_hub_product_url( $cat['slug'], $sub['slug'] ) ); ?>"><?php echo esc_html( $sub['label'] ); ?></a></li>
+										<?php endforeach; ?>
+									</ul>
+								<?php endif; ?>
+								<a class="bh-dropdown__goto" href="<?php echo esc_url( blog_hub_product_url( $cat['slug'] ) ); ?>">
+									<?php
+									/* translators: %s: product category name */
+									printf( esc_html__( 'Go to %s', 'blog-hub' ), esc_html( $cat['name'] ) );
+									?>
+									<i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+								</a>
+							</div>
+						<?php endforeach; ?>
+					</div>
+				</div>
 				<a class="bh-dropdown__all" href="<?php echo esc_url( blog_hub_header_products_url() ); ?>">
 					<?php esc_html_e( 'View All Products', 'blog-hub' ); ?>
 					<i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
@@ -231,7 +268,16 @@ function blog_hub_render_mobile_header_dropdown( $key ) {
 			?>
 			<ul class="bh-mobile-menu__sublist" id="bh-m-dd-products" hidden>
 				<?php foreach ( blog_hub_header_product_categories() as $cat ) : ?>
-					<li><a href="<?php echo esc_url( blog_hub_live_base_url() . $cat['slug'] . '/' ); ?>"><?php echo esc_html( $cat['name'] ); ?></a></li>
+					<li>
+						<a href="<?php echo esc_url( blog_hub_product_url( $cat['slug'] ) ); ?>"><?php echo esc_html( $cat['name'] ); ?></a>
+						<?php if ( ! empty( $cat['subs'] ) ) : ?>
+							<ul class="bh-mobile-menu__subsub">
+								<?php foreach ( $cat['subs'] as $sub ) : ?>
+									<li><a href="<?php echo esc_url( blog_hub_product_url( $cat['slug'], $sub['slug'] ) ); ?>"><?php echo esc_html( $sub['label'] ); ?></a></li>
+								<?php endforeach; ?>
+							</ul>
+						<?php endif; ?>
+					</li>
 				<?php endforeach; ?>
 				<li><a class="bh-mobile-menu__sublist-all" href="<?php echo esc_url( blog_hub_header_products_url() ); ?>"><?php esc_html_e( 'View All Products', 'blog-hub' ); ?></a></li>
 			</ul>
@@ -287,17 +333,24 @@ function blog_hub_footer_products() {
 }
 
 /**
+ * Footer "Company" column — fixed list matching the design, built from the
+ * same page lookups as the header nav (no Appearance > Menus setup needed).
+ */
+function blog_hub_footer_company_links() {
+	return array(
+		array( 'label' => __( 'Home', 'blog-hub' ), 'url' => home_url( '/' ) ),
+		array( 'label' => __( 'About Us', 'blog-hub' ), 'url' => blog_hub_find_page_url( 'template-about.php' ) ),
+		array( 'label' => __( 'Areas We Serve', 'blog-hub' ), 'url' => blog_hub_header_areas_url() ),
+		array( 'label' => __( 'Blog', 'blog-hub' ), 'url' => blog_hub_find_blog_url() ),
+		array( 'label' => __( 'Contact', 'blog-hub' ), 'url' => blog_hub_find_page_url( 'template-contact.php' ) ),
+	);
+}
+
+/**
  * Footer "From the Blog" column — the site's real categories (not the
  * hardcoded placeholder list the design mockup used), so this stays in
  * sync automatically as categories are added.
  */
 function blog_hub_footer_blog_categories() {
-	return get_categories(
-		array(
-			'number'  => 5,
-			'orderby' => 'count',
-			'order'   => 'DESC',
-			'hide_empty' => true,
-		)
-	);
+	return blog_hub_topic_categories( 5 );
 }

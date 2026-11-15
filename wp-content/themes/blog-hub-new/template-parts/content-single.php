@@ -10,8 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 $post_id     = get_the_ID();
 $author_id   = get_post_field( 'post_author', $post_id );
-$cats        = get_the_category( $post_id );
-$primary_cat = ! empty( $cats ) ? $cats[0] : null;
+$primary_cat = blog_hub_primary_category( $post_id );
 $reading_min = blog_hub_reading_time( $post_id );
 $permalink   = get_permalink( $post_id );
 
@@ -68,7 +67,7 @@ $toc = blog_hub_toc_from_content( get_the_content() );
 	$has_manual_excerpt = has_excerpt( $post_id );
 	$excerpt            = $has_manual_excerpt
 		? get_the_excerpt()
-		: wp_trim_words( wp_strip_all_tags( strip_shortcodes( get_the_content() ) ), 32 );
+		: blog_hub_sentence_summary( get_the_content() );
 	if ( $excerpt ) :
 		?>
 		<div class="bh-article-tldr-wrap">
@@ -110,11 +109,7 @@ $toc = blog_hub_toc_from_content( get_the_content() );
 		</div>
 	</section>
 
-	<button type="button" class="bh-back-to-top" aria-label="<?php esc_attr_e( 'Back to top', 'blog-hub' ); ?>" data-blog-hub-back-to-top>
-		<i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
-	</button>
-
-	<?php get_template_part( 'template-parts/cta-end' ); ?>
+	<?php get_template_part( 'template-parts/cta-end', null, array( 'layout' => 'split' ) ); ?>
 
 	<?php get_template_part( 'template-parts/related-posts', null, array( 'post_id' => $post_id ) ); ?>
 

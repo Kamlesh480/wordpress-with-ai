@@ -9,13 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$categories = get_categories(
-	array(
-		'orderby'    => 'count',
-		'order'      => 'DESC',
-		'hide_empty' => true,
-	)
-);
+$categories = blog_hub_topic_categories();
 
 $blog_page_id = get_option( 'page_for_posts' );
 $all_posts_url = $blog_page_id ? get_permalink( $blog_page_id ) : home_url( '/' );

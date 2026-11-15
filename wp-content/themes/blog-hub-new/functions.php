@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'BLOG_HUB_VERSION', '1.0.0' );
+define( 'BLOG_HUB_VERSION', '1.0.8' );
 
 require_once get_template_directory() . '/inc/main-site.php';
 require_once get_template_directory() . '/inc/site-header-footer.php';
@@ -30,6 +30,17 @@ function blog_hub_setup() {
 	add_theme_support( 'automatic-feed-links' );
 	add_theme_support( 'html5', array( 'search-form', 'comment-form', 'comment-list', 'gallery', 'caption', 'style', 'script' ) );
 	add_theme_support( 'customize-selective-refresh-widgets' );
+	// One full brand image (mark + wordmark), e.g. 1920x367. Shown on its own:
+	// when set, the text Site Title is not printed next to it.
+	add_theme_support(
+		'custom-logo',
+		array(
+			'height'      => 367,
+			'width'       => 1920,
+			'flex-height' => true,
+			'flex-width'  => true,
+		)
+	);
 
 	register_nav_menus(
 		array(
@@ -173,6 +184,79 @@ function blog_hub_reading_time( $post_id ) {
 }
 
 /**
+ * Font Awesome icon for a blog category card, picked from keywords in the
+ * category's slug/name so new categories get a sensible icon without any
+ * extra setup (pipes → waves, manholes → cover, poles → pole, paver blocks
+ * → grid, compliance/standards → checklist). Anything unmatched gets the
+ * generic layers icon.
+ */
+function blog_hub_category_icon( $cat ) {
+	$haystack = strtolower( $cat->slug . ' ' . $cat->name );
+	$map      = array(
+		'pipe'       => 'fa-water',
+		'hume'       => 'fa-water',
+		'manhole'    => 'fa-circle-dot',
+		'cover'      => 'fa-circle-dot',
+		'pole'       => 'fa-tower-broadcast',
+		'paver'      => 'fa-table-cells-large',
+		'block'      => 'fa-table-cells-large',
+		'compliance' => 'fa-clipboard-check',
+		'industry'   => 'fa-clipboard-check',
+		'standard'   => 'fa-clipboard-check',
+		'quality'    => 'fa-clipboard-check',
+		'kerb'       => 'fa-table-cells-large',
+		'road'       => 'fa-road-barrier',
+		'barrier'    => 'fa-road-barrier',
+		'safety'     => 'fa-road-barrier',
+		'basics'     => 'fa-book-open',
+		'guide'      => 'fa-book-open',
+	);
+	foreach ( $map as $needle => $icon ) {
+		if ( false !== strpos( $haystack, $needle ) ) {
+			return $icon;
+		}
+	}
+	return 'fa-layer-group';
+}
+
+/**
+ * Fallback TL;DR summary for posts without a hand-written excerpt: the
+ * opening sentences of the post as plain text, always ending on a complete
+ * sentence (never "…" mid-sentence). Collects whole sentences until roughly
+ * $target words; if even the first sentence is extremely long, falls back to
+ * a word-trimmed version of it.
+ */
+function blog_hub_sentence_summary( $content, $target = 35, $max = 70 ) {
+	// Put a space after block-level tags first so headings/paragraphs don't
+	// run together ("What is HSN Code?The HSN...") once tags are stripped.
+	$text = preg_replace( '#</(p|h[1-6]|li|td|th|div|blockquote)>|<br\s*/?>#i', ' ', strip_shortcodes( $content ) );
+	$text = trim( preg_replace( '/\s+/u', ' ', html_entity_decode( wp_strip_all_tags( $text ), ENT_QUOTES, 'UTF-8' ) ) );
+	if ( '' === $text ) {
+		return '';
+	}
+
+	$sentences = preg_split( '/(?<=[.!?])\s+(?=[\p{Lu}0-9"“])/u', $text );
+	$summary   = '';
+	$words     = 0;
+	foreach ( $sentences as $sentence ) {
+		$count = str_word_count( $sentence );
+		if ( $summary && $words + $count > $max ) {
+			break;
+		}
+		$summary .= ( $summary ? ' ' : '' ) . $sentence;
+		$words   += $count;
+		if ( $words >= $target ) {
+			break;
+		}
+	}
+
+	if ( $words > $max ) {
+		return wp_trim_words( $summary, $max );
+	}
+	return $summary;
+}
+
+/**
  * Build a table of contents from the H2 headings in a post's rendered content,
  * injecting an id="" on each heading so the TOC links (and CSS scroll-spy)
  * work. Reads post_content, returns a modified copy — nothing is saved back
@@ -227,19 +311,103 @@ function blog_hub_toc_from_content( $content ) {
 }
 
 /**
+ * True for a real topic category (RCC & Hume Pipes, Paver Blocks…), false for
+ * the catch-alls ("Blogs", "Uncategorized") and the location categories
+ * ("Areas We Serve" and its children: Haryana, Delhi, Uttar Pradesh).
+ *
+ * @param WP_Term $cat Category.
+ * @return bool
+ */
+function blog_hub_is_topic_category( $cat ) {
+	static $areas_id = null;
+	if ( null === $areas_id ) {
+		$areas    = get_category_by_slug( 'areas-we-serve' );
+		$areas_id = $areas ? (int) $areas->term_id : 0;
+	}
+	if ( in_array( $cat->slug, array( 'blogs', 'blog', 'uncategorized', 'areas-we-serve' ), true ) ) {
+		return false;
+	}
+	return ! ( $areas_id && (int) $cat->parent === $areas_id );
+}
+
+/**
+ * Topic categories that have posts, most-used first: the list behind Browse by
+ * Category, the category dropdown/switcher and the footer "From the Blog"
+ * column. If no topic category exists yet, falls back to all non-empty
+ * categories so those sections never disappear.
+ *
+ * @param int $number Max to return (0 = all).
+ * @return WP_Term[]
+ */
+function blog_hub_topic_categories( $number = 0 ) {
+	$all = get_categories(
+		array(
+			'orderby'    => 'count',
+			'order'      => 'DESC',
+			'hide_empty' => true,
+		)
+	);
+	$topics = array_values( array_filter( $all, 'blog_hub_is_topic_category' ) );
+	$list   = $topics ? $topics : $all;
+	return $number ? array_slice( $list, 0, $number ) : $list;
+}
+
+/**
+ * The ONE category a post is labelled with (card tag, article tag, breadcrumb,
+ * related posts). get_the_category() returns terms alphabetically, NOT in the
+ * order they were ticked, so "Blogs" or "Delhi" would beat every topic name.
+ * Order of preference:
+ *   1. the Yoast / Rank Math "Primary" category, when set, still assigned and
+ *      itself a topic (a Primary of "Blogs" / a location is skipped);
+ *   2. the first assigned category that isn't a catch-all ("Blogs",
+ *      "Uncategorized") or a location ("Areas We Serve" and its children);
+ *   3. whatever is assigned first.
+ *
+ * @param int $post_id Post ID (defaults to the current post).
+ * @return WP_Term|null
+ */
+function blog_hub_primary_category( $post_id = 0 ) {
+	$post_id = $post_id ? (int) $post_id : get_the_ID();
+	$cats    = get_the_category( $post_id );
+	if ( empty( $cats ) ) {
+		return null;
+	}
+
+	foreach ( array( '_yoast_wpseo_primary_category', 'rank_math_primary_category' ) as $meta_key ) {
+		$primary_id = (int) get_post_meta( $post_id, $meta_key, true );
+		foreach ( $cats as $cat ) {
+			// Yoast's Primary is only trusted when it's a topic: on this site it
+			// is set to "Blogs" or a location on most posts, and it can't be
+			// changed without changing the post URL (permalinks use %category%).
+			if ( $primary_id && (int) $cat->term_id === $primary_id && blog_hub_is_topic_category( $cat ) ) {
+				return $cat;
+			}
+		}
+	}
+
+	foreach ( $cats as $cat ) {
+		if ( blog_hub_is_topic_category( $cat ) ) {
+			return $cat;
+		}
+	}
+
+	return $cats[0];
+}
+
+/**
  * Related posts: other published posts sharing the current post's primary
  * category, most recent first, excluding the current post. Reads existing
  * category/post data only.
  */
 function blog_hub_related_posts( $post_id, $count = 3 ) {
-	$cats = get_the_category( $post_id );
-	if ( empty( $cats ) ) {
+	$primary_cat = blog_hub_primary_category( $post_id );
+	if ( ! $primary_cat ) {
 		return array();
 	}
 
 	return get_posts(
 		array(
-			'category__in'        => array( $cats[0]->term_id ),
+			'category__in'        => array( $primary_cat->term_id ),
 			'post__not_in'        => array( $post_id ),
 			'posts_per_page'      => $count,
 			'orderby'             => 'date',
@@ -467,13 +635,13 @@ function blog_hub_breadcrumb_schema() {
 				'item'     => get_permalink( $blog_id ),
 			);
 		}
-		$cats = get_the_category();
-		if ( ! empty( $cats ) ) {
+		$primary_cat = blog_hub_primary_category();
+		if ( $primary_cat ) {
 			$items[] = array(
 				'@type'    => 'ListItem',
 				'position' => count( $items ) + 1,
-				'name'     => $cats[0]->name,
-				'item'     => get_category_link( $cats[0] ),
+				'name'     => $primary_cat->name,
+				'item'     => get_category_link( $primary_cat ),
 			);
 		}
 		$items[] = array(
@@ -717,8 +885,11 @@ function blog_hub_customize_register( $wp_customize ) {
 	$wp_customize->add_control(
 		'blog_hub_map_embed',
 		array(
-			'label'       => __( 'Map embed (footer "Find Us")', 'blog-hub' ),
-			'description' => __( 'Paste a Google Maps embed code (the <iframe ...> from Maps\' Share > Embed a map). Leave blank to hide the "Find Us" footer column.', 'blog-hub' ),
+			'label'       => __( 'Map embed (footer Contact column)', 'blog-hub' ),
+			// No literal HTML tags in this text: the Customizer prints descriptions
+			// unescaped, so a written-out iframe tag becomes a real empty iframe that
+			// covers the textarea.
+			'description' => __( 'Paste the full Google Maps embed code (Google Maps, then Share, then Embed a map, then Copy HTML). Leave blank to hide the map.', 'blog-hub' ),
 			'section'     => 'blog_hub_contact',
 			'type'        => 'textarea',
 		)
@@ -780,9 +951,26 @@ function blog_hub_customize_register( $wp_customize ) {
 		'blog_hub_newsletter_action',
 		array(
 			'label'       => __( 'Newsletter form action URL', 'blog-hub' ),
-			'description' => __( 'Where the email signup form on the front page submits to (your email service provider). Leave blank to hide the newsletter section.', 'blog-hub' ),
+			'description' => __( 'Where the email signup form on the blog page submits to (your email service provider). Leave this and the shortcode below blank to hide the newsletter section.', 'blog-hub' ),
 			'section'     => 'blog_hub_front_page',
 			'type'        => 'url',
+		)
+	);
+
+	$wp_customize->add_setting(
+		'blog_hub_newsletter_shortcode',
+		array(
+			'default'           => '',
+			'sanitize_callback' => 'blog_hub_sanitize_form_shortcode',
+		)
+	);
+	$wp_customize->add_control(
+		'blog_hub_newsletter_shortcode',
+		array(
+			'label'       => __( 'Newsletter form shortcode', 'blog-hub' ),
+			'description' => __( 'Alternative to the action URL: paste a WPForms shortcode, e.g. [wpforms id="123" title="false"]. When set, this form is used in the "Get New Guides in Your Inbox" section.', 'blog-hub' ),
+			'section'     => 'blog_hub_front_page',
+			'type'        => 'text',
 		)
 	);
 
@@ -890,6 +1078,55 @@ function blog_hub_customize_register( $wp_customize ) {
 			'type'    => 'url',
 		)
 	);
+
+	$wp_customize->add_setting( 'blog_hub_end_cta_image', array( 'default' => '', 'sanitize_callback' => 'esc_url_raw' ) );
+	$wp_customize->add_control(
+		new WP_Customize_Image_Control(
+			$wp_customize,
+			'blog_hub_end_cta_image',
+			array(
+				'label'       => __( 'End-of-page CTA image (blog articles)', 'blog-hub' ),
+				'description' => __( 'Shown on the left of the call-to-action band at the end of each article (e.g. a delivery photo). Leave blank for a centered band without an image.', 'blog-hub' ),
+				'section'     => 'blog_hub_cta',
+			)
+		)
+	);
+
+	// Footer extras (brand blurb, opening hours, certificate badge).
+	$wp_customize->add_setting( 'blog_hub_footer_about', array( 'default' => '', 'sanitize_callback' => 'sanitize_text_field' ) );
+	$wp_customize->add_control(
+		'blog_hub_footer_about',
+		array(
+			'label'       => __( 'Footer description', 'blog-hub' ),
+			'description' => __( 'Short line under the footer logo, e.g. "Precast concrete maker in Faridabad, Haryana. Since 2010." The site tagline (Site Identity) is shown below it in gold.', 'blog-hub' ),
+			'section'     => 'blog_hub_contact',
+			'type'        => 'text',
+		)
+	);
+
+	$wp_customize->add_setting( 'blog_hub_opening_hours', array( 'default' => '', 'sanitize_callback' => 'sanitize_text_field' ) );
+	$wp_customize->add_control(
+		'blog_hub_opening_hours',
+		array(
+			'label'       => __( 'Opening hours', 'blog-hub' ),
+			'description' => __( 'Shown in the footer Contact column, e.g. "Mon to Sat, 9 am to 6 pm". Leave blank to hide.', 'blog-hub' ),
+			'section'     => 'blog_hub_contact',
+			'type'        => 'text',
+		)
+	);
+
+	$wp_customize->add_setting( 'blog_hub_footer_badge', array( 'default' => '', 'sanitize_callback' => 'esc_url_raw' ) );
+	$wp_customize->add_control(
+		new WP_Customize_Image_Control(
+			$wp_customize,
+			'blog_hub_footer_badge',
+			array(
+				'label'       => __( 'Footer certificate badge', 'blog-hub' ),
+				'description' => __( 'Only upload a real, current certificate (e.g. ISO / BIS). Leave blank and nothing is shown.', 'blog-hub' ),
+				'section'     => 'blog_hub_contact',
+			)
+		)
+	);
 }
 add_action( 'customize_register', 'blog_hub_customize_register' );
 
@@ -950,3 +1187,43 @@ function blog_hub_social_menu_link_attributes( $atts, $item, $args ) {
 	return $atts;
 }
 add_filter( 'nav_menu_link_attributes', 'blog_hub_social_menu_link_attributes', 10, 3 );
+
+/**
+ * Bare <img> for the Customizer logo. the_custom_logo() wraps the image in its
+ * own <a>, which would nest inside the theme's brand links (invalid HTML).
+ *
+ * @param string $class Extra class for the image.
+ * @return string Image HTML, or '' when no logo is set.
+ */
+function blog_hub_logo_img( $class = '' ) {
+	$logo_id = (int) get_theme_mod( 'custom_logo' );
+	if ( ! $logo_id ) {
+		return '';
+	}
+	return wp_get_attachment_image(
+		$logo_id,
+		'full',
+		false,
+		array(
+			'class'    => trim( 'bh-logo ' . $class ),
+			'alt'      => get_bloginfo( 'name', 'display' ),
+			'loading'  => false,
+			'decoding' => 'async',
+			'sizes'    => '240px',
+		)
+	);
+}
+
+/**
+ * Customizer sanitizer: accept only a single [wpforms ...] shortcode.
+ *
+ * @param string $input Raw value.
+ * @return string
+ */
+function blog_hub_sanitize_form_shortcode( $input ) {
+	$input = trim( wp_unslash( (string) $input ) );
+	if ( preg_match( '/^\[wpforms\s+id="?\d+"?(?:\s+[a-z_]+="[^"\[\]]*")*\s*\]$/i', $input ) ) {
+		return $input;
+	}
+	return '';
+}

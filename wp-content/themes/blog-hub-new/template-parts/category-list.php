@@ -1,19 +1,15 @@
 <?php
 /**
- * "Browse by Category" card list — every category with at least one post.
+ * "Browse by Category" card list — the topic categories with at least one post
+ * (Blogs / Uncategorized / location categories are left out, see
+ * blog_hub_topic_categories()).
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$categories = get_categories(
-	array(
-		'orderby'    => 'count',
-		'order'      => 'DESC',
-		'hide_empty' => true,
-	)
-);
+$categories = blog_hub_topic_categories();
 
 if ( empty( $categories ) ) {
 	return;
@@ -30,7 +26,7 @@ if ( empty( $categories ) ) {
 		<div class="bh-category-list">
 			<?php foreach ( $categories as $cat ) : ?>
 				<a class="bh-category-card" href="<?php echo esc_url( get_category_link( $cat ) ); ?>">
-					<i class="fa-solid fa-layer-group bh-category-card__icon" aria-hidden="true"></i>
+					<i class="fa-solid <?php echo esc_attr( blog_hub_category_icon( $cat ) ); ?> bh-category-card__icon" aria-hidden="true"></i>
 					<span class="bh-category-card__body">
 						<span class="bh-category-card__title"><?php echo $cat->name; // phpcs:ignore WordPress.Security.EscapeOutput -- get_categories() names are pre-escaped for display. ?></span>
 						<?php if ( $cat->description ) : ?>

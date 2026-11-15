@@ -23,30 +23,42 @@ with real values pulled from the live site (shubhsanskarconcrete.com) on 22–23
 **NEEDS INPUT** below is a real open question from that audit, not a placeholder — resolve it
 before going live, don't just paste something in to clear the checkbox.
 
+**Latest update (15 Nov 2026):** the "SSC - Staging vs Design" feedback round. The code fixes
+ship in theme version **1.0.8** (1.0.2 added the full logo image; 1.0.3 fixed which category labels a post; 1.0.4 fixed the Map embed box being impossible to type in; 1.0.5 limited category lists to topic categories; 1.0.6 ignores a Yoast Primary of Blogs/location; 1.0.7 newsletter section works with a WPForms form; 1.0.8 sticky header for old tables without a header row); everything that still needs doing in wp-admin is collected
+in **section 14** at the bottom of this file — start there if you're picking this up fresh.
+
 ---
 
 ## 1. Site Identity (Appearance > Customize > Site Identity)
 
-- ⬜ **Logo** — the live site already has two real logo files (confirmed 22 Oct 2026):
-  - Header logo (dark background): `https://shubhsanskarconcrete.com/wp-content/uploads/2024/11/25.png`
-    — gold "SS" mark + white wordmark. Use this one in the theme's header logo slot;
-    set its alt text to "Shubh Sanskar Concrete" (live site has no alt text set).
-  - Footer / light-background logo: `https://shubhsanskarconcrete.com/wp-content/uploads/2024/11/bottom.png`
-    (dark version of the same mark) — only needed if the theme has a second logo slot
-    for a light background.
-  Until the header logo is set, the header falls back to showing the site name as
-  plain text.
+- ⬜ **Logo** — **one complete image**: gold "SS" mark + white "Shubh Sanskar Concrete"
+  wordmark baked into the picture (1920×367). Live-site file (confirmed 22 Oct and 15 Nov 2026):
+  `https://shubhsanskarconcrete.com/wp-content/uploads/2024/11/25.png.webp`
+  (the `.png` version of the same file also works).
+  - Download it, then **Customize → Site Identity → Select logo → upload**, and click
+    **Skip cropping** (cropping would cut off the wordmark). Set the image's alt text to
+    "Shubh Sanskar Concrete".
+  - The theme shows this image **on its own** in the header, the mobile menu and the footer.
+    It does *not* print the Site Title text next to it, so the name never appears twice.
+  - The Logo field only appears in the Customizer from theme **v1.0.2** onward (earlier
+    versions never switched WordPress's logo feature on).
+  - The dark `bottom.png` version (light backgrounds) is not needed: every place the
+    theme shows the logo has a dark navy background.
+  Until the logo is set, the header falls back to showing the Site Title + Tagline as text.
 
 - ⬜ **Site Title** — confirmed against the live site (22 Oct 2026), no change from below.
+  Still needed even with the logo image: it's used for the footer copyright line, browser
+  tab titles, search results / social shares, and the logo's alt text.
   Paste this value:
   ```
   Shubh Sanskar Concrete
   ```
 
-- ⬜ **Tagline** — **NEEDS DECISION**: the live site currently shows "Leading Precast
-  Concrete Products Manufacturer" in this slot, but the design and business context use
-  the line below. Confirm which one to actually use before pasting.
-  Paste this value (pending confirmation):
+- ⬜ **Tagline** — **decided (15 Nov 2026 feedback round):** use the design's line below.
+  It shows in gold under the footer description (the logo image doesn't contain it, so it
+  isn't duplicated), and next to the header name only when no logo image is set. (The live site currently shows "Leading Precast Concrete Products
+  Manufacturer" here — replace it.)
+  Paste this value:
   ```
   Building Trust, Creating Products
   ```
@@ -71,8 +83,8 @@ before this goes live** — these are safe placeholders for staging only.
   +91 7042103883
   ```
 
-- ⬜ **Phone 2** *(shown as a second number in the header top bar only — the
-  footer only ever shows one phone number, matching the design)* — real number
+- ⬜ **Phone 2** *(shown in the header top bar and, as of 15 Nov 2026, also in the
+  footer Contact column — both numbers are tap-to-call links)* — real number
   confirmed live (22 Oct 2026); note the live header actually lists this number
   first, ahead of Phone 1 — check if that order matters once the theme is live.
   Paste this value:
@@ -103,9 +115,14 @@ before this goes live** — these are safe placeholders for staging only.
   *(No single safe placeholder to paste here — this one genuinely needs a real
   address's embed code, even for staging, or just leave it blank to hide the
   "Find Us" column until you have one.)*
-  **NEEDS INPUT:** the live footer already has a working Google Map embed for "Shubh
-  Sanskar Concrete (I) Pvt. Ltd." — inspect that embed on the live site, or re-generate
-  a fresh one from Google Maps for the same business listing, and paste its iframe here.
+  **✅ Value found (15 Nov 2026):** this is the exact embed the live site's footer uses for
+  the "Shubh Sanskar Concrete (I) Pvt. Ltd." Google listing. Tested: the theme accepts it.
+  Paste this value (all on one line, including `<iframe` and `</iframe>`):
+  ```
+  <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3511.49717518003!2d77.3151602!3d28.343814799999997!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x6ccb2537e0f3383!2sShubh%20Sanskar%20Concrete%20(I)%20Pvt.%20Ltd.!5e0!3m2!1sen!2sin!4v1655551436468!5m2!1sen!2sin" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+  ```
+  If the field comes back empty after Publish, the paste wasn't a complete Google Maps
+  iframe (the theme silently drops anything else).
 
 - ⬜ **WhatsApp number** — digits only, with country code, no spaces or `+`.
   Powers the floating WhatsApp button (every page, bottom-right) and the
@@ -114,6 +131,27 @@ before this goes live** — these are safe placeholders for staging only.
   ```
   919217021955
   ```
+
+- ⬜ **Footer description** *(new, 15 Nov 2026)* — short line under the footer logo;
+  the Tagline (section 1) appears below it in gold.
+  Paste this value:
+  ```
+  Precast concrete maker in Faridabad, Haryana. Since 2010.
+  ```
+
+- ⬜ **Opening hours** *(new, 15 Nov 2026)* — shown with a clock icon in the footer
+  Contact column. Leave blank to hide.
+  Paste this value:
+  ```
+  Mon to Sat, 9 am to 6 pm
+  ```
+
+- ⬜ **Footer certificate badge** *(new, 15 Nov 2026)* — **leave blank for now.**
+  Only upload an image here once there is a real, current certificate (ISO / BIS etc.);
+  when blank, nothing is shown.
+
+*(No field needed for **Get Directions** — the footer builds that Google Maps link
+automatically from the Address above.)*
 
 ## 3. Front Page Hero (Appearance > Customize > Front Page Hero)
 
@@ -150,15 +188,21 @@ These control the Blog Hub (`/blog/`) page 1 copy.
   Fresh from the Casting Floor
   ```
 
-- ⬜ **Newsletter form action URL** — **NEEDS INPUT, currently blocked**: the live site has
-  no newsletter signup anywhere, and no email-service provider has been decided yet. The
-  whole newsletter block stays hidden until this is set, so leave it blank until a provider
-  (Mailchimp, Brevo, etc.) is chosen — or decide to skip the newsletter for launch entirely.
-  Paste this value (example only — replace with your own Mailchimp/Brevo form
-  action URL, this placeholder will not actually work):
+- ✅ **Newsletter form shortcode** *(new, theme v1.0.7)* — **decided 15 Nov 2026: use WPForms**
+  (no email-service account needed). A WPForms form "Newsletter signup" (one Email field +
+  Subscribe) emails each sign-up to `shubhsanskarconcrete@gmail.com`; WPForms Lite does not
+  store entries, so the inbox *is* the list. Someone copies the addresses into a mailing tool
+  when the first newsletter goes out. **Staging: done** (form ID 8090). For production, import
+  the same form (WPForms → Tools → Import; export it from staging via WPForms → Tools →
+  Export) and paste its shortcode, e.g.:
   ```
-  https://shubhsanskarconcrete.us1.list-manage.com/subscribe/post?u=XXXXXXXX&id=YYYYYYYY
+  [wpforms id="8090" title="false"]
   ```
+  (the ID will differ on production — copy it from WPForms → All Forms).
+
+- ⬜ **Newsletter form action URL** — leave blank while the WPForms shortcode above is used.
+  Only for a later switch to Mailchimp/Brevo: paste that service's form action URL here and
+  clear the shortcode (the theme's own form sends the field as `EMAIL`, which both expect).
 
 - ⬜ **Secondary links line** — a short sentence with links shown near the
   bottom of the blog listing. Basic HTML allowed. Updated below to the real page
@@ -228,7 +272,20 @@ look confusing: a lone button text with no link (or vice versa) will never show 
   https://shubhsanskarconcrete.com/contact/?utm_source=blog&utm_medium=end_cta
   ```
 
+- ⬜ **End-of-page CTA image (blog articles)** *(new, 15 Nov 2026)* — upload a wide
+  delivery/yard photo (landscape, roughly 4:3). On article pages the band then shows
+  the photo on the left and the heading + gold button on the right, matching the
+  design. Without an image the band stays centered. The heading always displays in
+  capitals automatically — type it in normal case.
+
 ## 5. Menus (Appearance > Menus)
+
+> **Update (15 Nov 2026):** only the **Social Links** menu is still used. The header
+> navigation and the footer "Company" column are now built into the theme to match the
+> design exactly (header: Home, Products, Areas We Serve, About Us, Blog, Contact;
+> footer Company: Home, About Us, Areas We Serve, Blog, Contact). The Primary and Footer
+> menus below can stay as they are — the theme simply ignores them. Renaming or
+> reordering those links is now a developer change.
 
 Create these three menus if they don't exist, add items, then assign each to its
 theme location at the bottom of the menu editor (find this via the "Manage
@@ -271,10 +328,14 @@ Locations" tab, or the dropdown at the bottom of the menu editor screen).
   Facebook    → https://www.facebook.com/shubhsanskarconcrete
   Instagram   → https://www.instagram.com/shubhsanskarconcrete/
   LinkedIn    → https://www.linkedin.com/company/shubhsanskarconcrete/
-  X (Twitter) → https://twitter.com/sscconcrete   NEEDS DECISION: an older post on the
-                site instead links to twitter.com/shubhsanskarc — confirm which handle
-                is actually current before using either.
+  X (Twitter) → https://twitter.com/sscconcrete   (confirmed 15 Nov 2026: this is the
+                handle in the live site's own header social icons; the old
+                twitter.com/shubhsanskarc link in one post is outdated)
   ```
+  **Required for the footer's round social icons** (feedback item, 15 Nov 2026) — if no
+  menu is assigned to the **Social** location, the icons simply don't appear. Each icon
+  gets a screen-reader label automatically from the menu item's title, so title the items
+  "Facebook", "Instagram", "LinkedIn", "X".
   No YouTube channel found live — leave it out unless one actually exists. No public
   WhatsApp number was found on the live site either (see Contact Details → WhatsApp,
   NEEDS INPUT in section 8) — don't invent one.
@@ -309,30 +370,35 @@ below, which should be resolved during that work rather than before it.
   ```
   Name: RCC & Hume Pipes
   Slug: rcc-hume-pipes
+  Description: NP2 to NP4 pipe specifications, sizes, price lists, testing and culvert use.
   Covers: NP2/NP3/NP4 pipes, specifications, price lists, testing, culverts, manufacturing
   Posts assigned: 20
   Related product page: https://shubhsanskarconcrete.com/rcc-pipes/
 
   Name: Manhole & Drain Covers
   Slug: manhole-drain-covers
+  Description: SFRC and concrete manhole covers, drain covers and load classes for roads and sites.
   Covers: SFRC and concrete manhole covers, drain covers, saucer drain
   Posts assigned: 9
   Related product page: https://shubhsanskarconcrete.com/sfrc-manhole-cover/
 
   Name: Paver Blocks & Kerb Stones
   Slug: paver-blocks-kerb-stones
+  Description: Interlocking paver grades, designs and prices, kerb stones and laying guidance.
   Covers: Interlocking pavers, paver price and design, kerb stones, interlocking tiles
   Posts assigned: 7
   Related product page: https://shubhsanskarconcrete.com/cement-paver-blocks/
 
   Name: Road Safety & Street Products
   Slug: road-safety-street-products
+  Description: Concrete jersey barriers, bollards and tree guards for roads and public spaces.
   Covers: Jersey barriers, bollards, tree guards
   Posts assigned: 3
   Related product page: https://shubhsanskarconcrete.com/concrete-road-barriers/
 
   Name: Precast Basics & Guides
   Slug: precast-basics-guides
+  Description: Precast and RCC basics, HSN codes and buying guides that cover more than one product.
   Covers: General precast/RCC explainers, HSN code, company price list — posts that
   don't belong to one specific product
   Posts assigned: 5
@@ -353,8 +419,10 @@ below, which should be resolved during that work rather than before it.
   ```
 
 - ⬜ Re-assign each blog post to its correct **topic** category (not a location
-  category) as the primary/first category — the theme always uses a post's
-  FIRST assigned category for its tag, breadcrumb, and card label. Go to
+  category) as the primary category — the theme labels a post (tag, breadcrumb, card) with its Yoast
+  Primary category if that is a topic, otherwise its first category that isn't Blogs /
+  Uncategorized / a location (theme v1.0.6+). Don't change Yoast Primary on old posts:
+  the permalinks include the category. See section 14 for the quick bulk-edit method. Go to
   **Posts > All Posts**, open each post, and under "Categories" check the
   correct topic box (and uncheck the location-only one if it's currently first).
   The full post-by-post mapping (one row per live post URL → topic category →
@@ -495,12 +563,16 @@ reference/consistency with the local environment.
 ⚠️ **Before touching Settings > Reading to make this the live homepage:** the
 theme can now build a complete new homepage (hero, products, about teaser,
 applications, clients, blog teaser, testimonials, a closing call-to-action),
-matching the Home.dc.html design supplied for this round. **It is NOT live
-yet** — it only becomes the real homepage once someone deliberately changes
-Settings > Reading → Homepage to point at it, which nobody should do until
-this page has been reviewed on staging and the switch is explicitly approved.
-Until then, building/configuring it here is completely safe — it has no
-effect on the live site's real homepage.
+matching the Home.dc.html design supplied for this round.
+
+**Correction (14 Nov 2026):** an earlier version of this note said the new homepage only
+goes live once Settings > Reading is changed. **That is wrong.** The theme's
+`front-page.php` takes over the site's front page as soon as the theme is uploaded and
+active — whatever page Settings > Reading points at (confirmed on staging). So:
+**uploading this theme to production replaces the live Elementor homepage immediately.**
+Fill in this section on staging, get the homepage approved, and only then upload the
+theme to production. (Ask your developer if the old homepage must stay live after the
+upload — that needs a small code change.)
 
 **Customizer fields** (Appearance > Customize > Homepage):
 
@@ -688,8 +760,9 @@ before.
 
 - ⬜ **Primary Navigation menu** (Appearance > Menus) is no longer used to
   build the main nav — the header now has its own fixed structure (Home,
-  About Us, Products, Areas We Serve, Contact, Blog) to match the design
-  exactly. If you need to rename or reorder these, that's a code change, not
+  Products, Areas We Serve, About Us, Blog, Contact — order updated 15 Nov 2026)
+  to match the design exactly. The Products dropdown has a second level: hover a
+  product to see its types (RCC Pipes → NP2 / NP3 / NP4) plus a "Go to …" link. If you need to rename or reorder these, that's a code change, not
   a wp-admin setting — ask your developer.
 - ⬜ **Products** and **Areas We Serve** dropdowns show a hardcoded list of
   categories/cities with links to pages on the **live site**
@@ -706,13 +779,160 @@ before.
 - ⬜ **Call Now button** (header, floating button, footer, sticky mobile bar)
   all use the same **Phone** / **Phone 2** fields from section 2 above —
   nothing new to set.
-- ⬜ **Request a Quote** button (the strip just above the footer, sitewide)
-  links to whichever page uses the **"Contact Us"** template — make sure
-  that page is set up per section 12 above.
+- ⬜ **Request a Quote** button (the strip just above the footer) links to
+  whichever page uses the **"Contact Us"** template — make sure that page is set
+  up per section 12 above. The strip appears on every page **except blog
+  articles**, which end with their own call-to-action band instead.
 - ⬜ **Floating WhatsApp/Call buttons** and the **mobile sticky contact bar**
   both depend on the new **WhatsApp number** field in section 2 — fill that
   in to show the WhatsApp button/bar; leave it blank to show Call-only (or
   hide the floating buttons entirely if Phone is also blank).
+
+---
+
+## 14. "SSC - Staging vs Design" feedback round (15 Nov 2026)
+
+Source: the *SSC - Staging vs Design* review doc (14 pages, header/footer/blog/article).
+Every item is either **fixed in theme code** (ships in theme **v1.0.8** — just upload the new
+`blog-hub.zip`) or **needs a wp-admin change** (checklist below).
+
+### Fixed in theme code (nothing to do except upload the theme)
+
+- Logo → the full brand image (mark + wordmark) shows on its own in header, mobile menu and
+  footer, sized to fit (v1.0.2). Before this the Customizer had no Logo field at all.
+- Customize → Contact Details → **Map embed** box was hidden behind a blank area (its help
+  text contained a literal iframe tag, which the browser turned into a real empty frame), so
+  nothing could be pasted. Fixed in v1.0.4.
+- Category label → a post ticked with both "Blogs" and a topic now shows the topic (WordPress
+  sorts categories alphabetically, so "Blogs" used to win). Yoast Primary is respected (v1.0.3).
+- "Categories don't have the right icons" (feedback p.6–7) → root cause is content: staging
+  only has Blogs / Haryana / Delhi / Uttar Pradesh / Areas We Serve, which aren't topics, so
+  every card gets the generic stack icon. Fixed in code (v1.0.5): Browse by Category, the
+  category dropdown/switcher and the footer "From the Blog" now list **only topic
+  categories** (Blogs, Uncategorized and location categories are left out; if no topic
+  category exists yet they fall back to showing everything). Each card's description now
+  sits on its own line under the name, as in the design. **The icons appear once the five
+  topic categories below are created and have posts.**
+- Category icons → also for the approved names: road barrier for Road Safety & Street
+  Products, open book for Precast Basics & Guides (v1.0.3).
+- Header menu order → Home, Products, Areas We Serve, About Us, Blog, Contact.
+- Products dropdown → two levels (product → its types, e.g. RCC Pipes → NP2/NP3/NP4, with
+  "Go to …" link); the mobile menu lists the types under their product too.
+- Footer Company links → Home, About Us, Areas We Serve, Blog, Contact (no menu needed).
+- Footer Contact column → both phone numbers as tap-to-call links, **Get Directions** link
+  under the address (opens Google Maps), opening hours, map, then WhatsApp Us.
+- Footer brand column → description line + gold tagline + social icons + certificate badge
+  slot (all from settings below).
+- Square **back-to-top** button in the footer bottom bar (it existed but was invisible due to
+  a CSS clash — fixed).
+- "Concrete Drain Covers" and other product names stay on one line in the footer.
+- Browse by Category → each topic gets its own icon (pipes, manholes, poles, paver blocks,
+  compliance) automatically from the category name.
+- Article TL;DR → when no excerpt is written, the automatic summary now ends on a full
+  sentence (no "…").
+- Article tables → the header row stays visible below the site header while scrolling; the
+  Table of Contents no longer slides under the header either.
+- Article author box → role line, verified tick, topic chips, and spacing above the dark band.
+- Article call-to-action band → uppercase heading, gold button, photo on the left (needs the
+  new image setting below).
+- Article ending order → author box → call-to-action band → Related Articles → footer; the
+  extra "Need pipes or covers?" strip no longer appears on articles.
+
+### Reference article for the team (staging, 15 Nov 2026)
+
+**https://shubhsanskarconcrete.com/staging-test-789/blogs/choose-np2-np3-np4-rcc-hume-pipe-class/**
+— "NP2, NP3 or NP4? How to Choose the Right RCC Hume Pipe Class". Built to show every
+article feedback item working; copy its setup when writing new posts:
+- **Category:** RCC Hume Pipes (topic) + Blogs → gold label and breadcrumb show the topic.
+- **Excerpt:** 2 sentences written by hand → shown as the TL;DR, no "…".
+- **Editor:** WordPress block editor (not Elementor). Headings as H2 → Table of Contents.
+  Tables made with the **Table block with "Header section" switched on** → sticky header row.
+- **Featured image:** a real yard photo with alt text.
+- **Author:** Shubhankar → author box with tick, role line (profile *Title* + first stat)
+  and topic chips. Title set 15 Nov 2026 to the section 7 value.
+- End of page: author box → split CTA band with photo → Related Articles → footer.
+- Theme v1.0.8 also gives the old Elementor posts' tables (no header row) a sticky first row.
+- ⚠️ Author profile still shows two unverified claims from before: the stat "400+ site
+  deliveries overseen" and the bio "India's leading manufacturers…" (section 7 says not to
+  use either). Replace them under Users → Shubhankar when real values are confirmed.
+
+### To do in wp-admin (staging now, production later)
+
+**Plugins** (Plugins → Installed Plugins):
+- ⬜ Deactivate **Call Now Button** — it adds the extra green call button at the bottom
+  left. The theme already has its own call + WhatsApp buttons (bottom right).
+- ⬜ Deactivate **YARPP – Yet Another Related Posts Plugin** — it adds the old
+  "Related Posts:" thumbnail strip inside articles. The theme's own "Related Articles"
+  section replaces it.
+- ⬜ Keep **Social Chat (WP WhatsApp Chat)** deactivated (see section 13 / known gotcha:
+  its WhatsApp bubble overlaps the theme's buttons).
+
+**Appearance → Customize:**
+- ⬜ **Site Identity → Logo**: upload the complete logo image `25.png.webp` (section 1) →
+  **Skip cropping**. It replaces the text name in header, mobile menu and footer.
+- ⬜ **Site Identity → Site Title** = `Shubh Sanskar Concrete` (the footer copyright line
+  "© {year} Shubh Sanskar Concrete. All rights reserved." uses this; the year updates itself).
+- ⬜ **Site Identity → Tagline** = `Building Trust, Creating Products` (section 1).
+- ⬜ **Contact Details** → Email, Phone, Phone 2, Address, Map embed, WhatsApp, and the new
+  **Footer description**, **Opening hours** (leave **Footer certificate badge** blank) —
+  section 2. *This is what replaces the wrong "Madhya Pradesh" address, "+91 98765 43210"
+  phone and "info@…" email currently on staging.*
+- ⬜ **Front Page Hero → Intro paragraph** — the paragraph under the Blog page title (section 3).
+- ⬜ **Blog CTA Banners** → the four end-of-page CTA fields + the new **End-of-page CTA
+  image** (section 4).
+
+**Appearance → Menus:**
+- ⬜ Create/assign the **Social Links** menu to the **Social** location (section 5) — makes
+  the Facebook / Instagram / LinkedIn / X icons appear in the footer.
+
+**Posts → Categories** (section 6 — the biggest content gap):
+- ⬜ Create the **five approved topic categories** from section 6 (Posts → Categories →
+  Add New Category: Name, Slug, Description): **RCC & Hume Pipes**, **Manhole & Drain
+  Covers**, **Paver Blocks & Kerb Stones**, **Road Safety & Street Products**, **Precast
+  Basics & Guides**. Don't delete Blogs / Areas We Serve / Haryana / Delhi / Uttar Pradesh.
+- ⬜ Move each of the posts into its topic, following the post-by-post mapping in
+  `SSC Site Config Checklist - Live Values.xlsx`, tab "6 Post Mapping". Fastest way:
+  Posts → All Posts → tick all the posts for one topic → Bulk actions **Edit** → Apply →
+  tick the topic under Categories → **Update** (this *adds* the topic; existing
+  categories stay, which is fine). Repeat per topic.
+- ✅ **Done on staging (15 Nov 2026):** categories renamed to the approved names
+  (Paver Blocks & Kerb Stones, Manhole & Drain Covers) and all 43 posts given their topic
+  (Pipes 20, Manhole & Drain Covers 9, Paver & Kerb 7, Road Safety 3, Precast Basics 4).
+  Blogs / location categories were kept on every post. "Cement Poles" exists but has no
+  posts, so it stays hidden. **Production still needs the same work.**
+- ⚠️ **Do NOT change Yoast's "Primary" category on existing posts.** Most posts have Primary
+  = Blogs or a location, and the permalinks contain the category (e.g.
+  `/blogs/all-about-jersey-barrier/`), so changing Primary would change live URLs and break
+  links/SEO. Theme v1.0.6 handles it instead: a Yoast Primary that isn't a topic is ignored
+  and the topic is shown.
+- This single change fixes: the "BLOGS" label on article titles and cards, the footer
+  "From the Blog" list (currently Blogs / haryana / Delhi…), the Browse by Category list
+  and its icons/descriptions, the breadcrumbs, and Related Articles.
+- *Theme note (v1.0.3, v1.0.6):* WordPress lists a post's categories alphabetically, so the theme no
+  longer just takes "the first one". It uses the Yoast/Rank Math Primary category if set
+  *and it's a topic*, otherwise the first category that isn't Blogs, Uncategorized or a location. Keeping
+  "Blogs" ticked therefore no longer shows "BLOGS".
+
+**Posts → each article (optional):**
+- ⬜ **Excerpt = the TL;DR box.** Each article starts with a "TL;DR" summary box. By default
+  the theme writes it automatically from the article's opening sentences. To write it
+  yourself: open the post → right-hand sidebar, **Post** tab → **Excerpt** (or "Add an
+  excerpt…" under the title area / Screen Options → Excerpt in the classic editor) → type
+  1–2 sentences → **Update**. Do this only for posts whose automatic summary reads badly
+  (e.g. it starts with an intro paragraph instead of the answer). The same text is also used
+  on the blog listing cards.
+
+**Users → Profile (each author)** — section 7:
+- ⬜ Fill in **Title** (role line, e.g. `Site Engineer, Quality Control`), **Extra profile stats**
+  (first line also appears in the role line, e.g. `13 | Years on Site`), **Expertise tags**
+  (the topic chips, comma-separated) and **Biographical Info**.
+
+**Newsletter ("Get new guides in your inbox", Blog page, before the quote CTA):**
+- ✅ Staging done 15 Nov 2026 via WPForms (section 3). Production: import the form and paste
+  its shortcode in Front Page Hero → Newsletter form shortcode.
+
+**After all of the above:** clear the cache (WP Rocket → Clear cache, plus host cache),
+then hard-refresh (Cmd + Shift + R) before reviewing.
 
 ---
 

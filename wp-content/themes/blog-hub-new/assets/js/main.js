@@ -72,6 +72,28 @@ function initHeader() {
 		} );
 	} );
 
+	// Products mega-menu: hovering/focusing a category shows its sub-types
+	// (and a "Go to" link) in the right-hand panel.
+	header.querySelectorAll( '.bh-dropdown--products' ).forEach( function ( dd ) {
+		var cats   = dd.querySelectorAll( '[data-bh-cat]' );
+		var panels = dd.querySelectorAll( '[data-bh-subpanel]' );
+		var activate = function ( slug ) {
+			cats.forEach( function ( c ) {
+				c.classList.toggle( 'is-active', c.getAttribute( 'data-bh-cat' ) === slug );
+			} );
+			panels.forEach( function ( p ) {
+				p.hidden = p.getAttribute( 'data-bh-subpanel' ) !== slug;
+			} );
+		};
+		cats.forEach( function ( c ) {
+			var go = function () {
+				activate( c.getAttribute( 'data-bh-cat' ) );
+			};
+			c.addEventListener( 'mouseenter', go );
+			c.addEventListener( 'focus', go );
+		} );
+	} );
+
 	document.addEventListener( 'click', function ( e ) {
 		items.forEach( function ( item ) {
 			if ( ! item.contains( e.target ) ) {
@@ -160,11 +182,8 @@ function initBackToTop() {
 	if ( ! btn ) {
 		return;
 	}
-	var onScroll = function () {
-		btn.hidden = window.scrollY < 400;
-	};
-	window.addEventListener( 'scroll', onScroll, { passive: true } );
-	onScroll();
+	// Lives in the footer's bottom bar, so it's only ever on screen once the
+	// visitor has scrolled to the end — no show/hide logic needed.
 	btn.addEventListener( 'click', function () {
 		var reduce = window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
 		window.scrollTo( { top: 0, behavior: reduce ? 'auto' : 'smooth' } );

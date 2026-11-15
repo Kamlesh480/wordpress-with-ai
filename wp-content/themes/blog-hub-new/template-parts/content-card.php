@@ -8,8 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$cats        = get_the_category();
-$primary_cat = ! empty( $cats ) ? $cats[0] : null;
+$primary_cat = blog_hub_primary_category();
 $reading_min = blog_hub_reading_time( get_the_ID() );
 ?>
 <article <?php post_class( 'bh-post-card' ); ?>>

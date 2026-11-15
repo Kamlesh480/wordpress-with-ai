@@ -8,13 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$categories    = get_categories(
-	array(
-		'orderby'    => 'count',
-		'order'      => 'DESC',
-		'hide_empty' => true,
-	)
-);
+$categories    = blog_hub_topic_categories();
 $current       = get_queried_object();
 $current_id    = ( $current instanceof WP_Term ) ? $current->term_id : 0;
 $blog_page_id  = get_option( 'page_for_posts' );

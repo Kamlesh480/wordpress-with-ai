@@ -19,8 +19,17 @@ $bh_phone_2         = get_theme_mod( 'blog_hub_contact_phone_2', '' );
 $bh_map_embed       = get_theme_mod( 'blog_hub_map_embed', '' );
 $bh_whatsapp_number = get_theme_mod( 'blog_hub_whatsapp_number', '' );
 $bh_whatsapp_href   = $bh_whatsapp_number ? 'https://wa.me/' . preg_replace( '/[^0-9]/', '', $bh_whatsapp_number ) : '';
+$bh_footer_about    = get_theme_mod( 'blog_hub_footer_about', '' );
+$bh_opening_hours   = get_theme_mod( 'blog_hub_opening_hours', '' );
+$bh_footer_badge    = get_theme_mod( 'blog_hub_footer_badge', '' );
+$bh_directions_href = $bh_address ? 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode( wp_strip_all_tags( $bh_address ) ) : '';
 ?>
 
+<?php
+// Articles end with their own call-to-action band + Related Articles, so
+// the sitewide quote strip would be a duplicate CTA there.
+if ( ! is_singular( 'post' ) ) :
+	?>
 <section class="bh-quote-strip" aria-label="<?php esc_attr_e( 'Request a quote', 'blog-hub' ); ?>">
 	<div class="bh-container bh-quote-strip__inner">
 		<p><?php esc_html_e( 'Need pipes or covers for a project? Tell us what you need.', 'blog-hub' ); ?></p>
@@ -34,6 +43,7 @@ $bh_whatsapp_href   = $bh_whatsapp_number ? 'https://wa.me/' . preg_replace( '/[
 		</div>
 	</div>
 </section>
+<?php endif; ?>
 
 <footer class="bh-footer">
 	<div class="bh-footer__top">
@@ -42,11 +52,14 @@ $bh_whatsapp_href   = $bh_whatsapp_number ? 'https://wa.me/' . preg_replace( '/[
 			<div class="bh-footer__brand">
 				<a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="bh-footer__logo-link">
 					<?php if ( has_custom_logo() ) : ?>
-						<?php the_custom_logo(); ?>
+						<?php echo blog_hub_logo_img( 'bh-logo--footer' ); // phpcs:ignore WordPress.Security.EscapeOutput -- wp_get_attachment_image() output. ?>
 					<?php else : ?>
 						<span class="bh-brand__name"><?php bloginfo( 'name' ); ?></span>
 					<?php endif; ?>
 				</a>
+				<?php if ( $bh_footer_about ) : ?>
+					<p class="bh-footer__about"><?php echo esc_html( $bh_footer_about ); ?></p>
+				<?php endif; ?>
 				<?php if ( get_bloginfo( 'description' ) ) : ?>
 					<p class="bh-footer__tagline"><?php bloginfo( 'description' ); ?></p>
 				<?php endif; ?>
@@ -62,6 +75,9 @@ $bh_whatsapp_href   = $bh_whatsapp_number ? 'https://wa.me/' . preg_replace( '/[
 					);
 					?>
 				<?php endif; ?>
+				<?php if ( $bh_footer_badge ) : ?>
+					<img class="bh-footer__badge" src="<?php echo esc_url( $bh_footer_badge ); ?>" alt="<?php esc_attr_e( 'Certification badge', 'blog-hub' ); ?>" loading="lazy">
+				<?php endif; ?>
 			</div>
 
 			<nav class="bh-footer__col" aria-label="<?php esc_attr_e( 'Products', 'blog-hub' ); ?>">
@@ -76,18 +92,11 @@ $bh_whatsapp_href   = $bh_whatsapp_number ? 'https://wa.me/' . preg_replace( '/[
 
 			<nav class="bh-footer__col" aria-label="<?php esc_attr_e( 'Company', 'blog-hub' ); ?>">
 				<h3 class="bh-footer__heading"><?php esc_html_e( 'Company', 'blog-hub' ); ?></h3>
-				<?php if ( has_nav_menu( 'footer' ) ) : ?>
-					<?php
-					wp_nav_menu(
-						array(
-							'theme_location' => 'footer',
-							'container'      => false,
-							'menu_class'     => 'bh-footer__links',
-							'fallback_cb'    => false,
-						)
-					);
-					?>
-				<?php endif; ?>
+				<ul class="bh-footer__links">
+					<?php foreach ( blog_hub_footer_company_links() as $link ) : ?>
+						<li><a href="<?php echo esc_url( $link['url'] ); ?>"><?php echo esc_html( $link['label'] ); ?></a></li>
+					<?php endforeach; ?>
+				</ul>
 				<h3 class="bh-footer__heading bh-footer__heading--sub"><?php esc_html_e( 'Areas We Serve', 'blog-hub' ); ?></h3>
 				<ul class="bh-footer__areas">
 					<?php foreach ( blog_hub_header_areas() as $city ) : ?>
@@ -120,7 +129,7 @@ $bh_whatsapp_href   = $bh_whatsapp_number ? 'https://wa.me/' . preg_replace( '/[
 					<?php if ( $bh_phone || $bh_phone_2 ) : ?>
 						<li>
 							<i class="fa-solid fa-phone" aria-hidden="true"></i>
-							<span>
+							<span class="bh-footer__phones">
 								<?php if ( $bh_phone ) : ?><a href="tel:<?php echo esc_attr( preg_replace( '/[^0-9+]/', '', $bh_phone ) ); ?>"><?php echo esc_html( $bh_phone ); ?></a><?php endif; ?>
 								<?php if ( $bh_phone_2 ) : ?><a href="tel:<?php echo esc_attr( preg_replace( '/[^0-9+]/', '', $bh_phone_2 ) ); ?>"><?php echo esc_html( $bh_phone_2 ); ?></a><?php endif; ?>
 							</span>
@@ -130,16 +139,29 @@ $bh_whatsapp_href   = $bh_whatsapp_number ? 'https://wa.me/' . preg_replace( '/[
 						<li><i class="fa-solid fa-envelope" aria-hidden="true"></i><a href="mailto:<?php echo esc_attr( $bh_email ); ?>"><?php echo esc_html( $bh_email ); ?></a></li>
 					<?php endif; ?>
 					<?php if ( $bh_address ) : ?>
-						<li><i class="fa-solid fa-location-dot" aria-hidden="true"></i><address><?php echo nl2br( esc_html( $bh_address ) ); ?></address></li>
+						<li>
+							<i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+							<span>
+								<address><?php echo nl2br( esc_html( $bh_address ) ); ?></address>
+								<a class="bh-footer__directions" href="<?php echo esc_url( $bh_directions_href ); ?>" target="_blank" rel="noopener">
+									<?php esc_html_e( 'Get Directions', 'blog-hub' ); ?>
+									<i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+									<span class="screen-reader-text"><?php esc_html_e( '(opens Google Maps in a new tab)', 'blog-hub' ); ?></span>
+								</a>
+							</span>
+						</li>
 					<?php endif; ?>
-					<?php if ( $bh_whatsapp_href ) : ?>
-						<li><i class="fa-brands fa-whatsapp" aria-hidden="true"></i><a href="<?php echo esc_url( $bh_whatsapp_href ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'WhatsApp Us', 'blog-hub' ); ?></a></li>
+					<?php if ( $bh_opening_hours ) : ?>
+						<li><i class="fa-solid fa-clock" aria-hidden="true"></i><span class="bh-footer__hours"><?php echo esc_html( $bh_opening_hours ); ?></span></li>
 					<?php endif; ?>
 				</ul>
 				<?php if ( $bh_map_embed ) : ?>
 					<div class="bh-footer__map">
 						<?php echo $bh_map_embed; // phpcs:ignore WordPress.Security.EscapeOutput -- sanitized by blog_hub_sanitize_map_embed() to a Google Maps <iframe> only. ?>
 					</div>
+				<?php endif; ?>
+				<?php if ( $bh_whatsapp_href ) : ?>
+					<a class="bh-footer__whatsapp" href="<?php echo esc_url( $bh_whatsapp_href ); ?>" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i><?php esc_html_e( 'WhatsApp Us', 'blog-hub' ); ?></a>
 				<?php endif; ?>
 			</div>
 
@@ -158,7 +180,7 @@ $bh_whatsapp_href   = $bh_whatsapp_number ? 'https://wa.me/' . preg_replace( '/[
 				<li><a href="#privacy-policy"><?php esc_html_e( 'Privacy Policy', 'blog-hub' ); ?></a></li>
 				<li><a href="#terms"><?php esc_html_e( 'Terms', 'blog-hub' ); ?></a></li>
 			</ul>
-			<button type="button" class="bh-back-to-top" aria-label="<?php esc_attr_e( 'Back to top', 'blog-hub' ); ?>" data-bh-to-top hidden>
+			<button type="button" class="bh-footer__totop" aria-label="<?php esc_attr_e( 'Back to top', 'blog-hub' ); ?>" data-bh-to-top>
 				<i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
 			</button>
 		</div>

@@ -168,3 +168,50 @@ See mem:known_gotchas for the double-escaping and pagination-var bugs tied to th
 See mem:security_and_git for a full list of what's git-ignored and why (the project root also
 now has a `SITE_CONFIG.md` checklist for all the Customizer/menu/category/author-profile setup
 needed per environment — not theme code, see that file directly).
+
+## "Staging vs Design" feedback round (theme v1.0.1, 2026-11-15)
+
+- Header nav order (fixed in `blog_hub_header_nav_items()`): Home, Products, Areas We Serve,
+  About Us, Blog, Contact. Products mega-menu is two-level: left list of categories, right
+  `.bh-dropdown__subpanel` per category (sub-types + "Go to …"), switched by hover/focus in
+  `main.js` (`[data-bh-cat]` / `[data-bh-subpanel]`). URLs via `blog_hub_product_url( $slug, $sub )`.
+- Footer Company column is code (`blog_hub_footer_company_links()`), no longer the `footer`
+  menu location. Contact column: both phones, address + auto "Get Directions" Google Maps link,
+  opening hours, map, WhatsApp. Brand column: logo, `blog_hub_footer_about`, tagline (gold),
+  social menu, optional `blog_hub_footer_badge` image.
+- New Customizer settings: `blog_hub_footer_about`, `blog_hub_opening_hours`,
+  `blog_hub_footer_badge` (section `blog_hub_contact`), `blog_hub_end_cta_image` (section `blog_hub_cta`).
+- `cta-end.php` takes `array( 'layout' => 'split' )` (single posts): image left / copy right,
+  falls back to centered when no image. Heading uppercase via CSS; button is `bh-btn--gold`.
+- Single post end order: author card → cta-end (split) → related-posts. The sitewide
+  `.bh-quote-strip` in footer.php is skipped on `is_singular('post')`; the floating
+  single-post back-to-top button was removed (footer bar has `.bh-footer__totop`).
+- `author-card.php` shows verified tick, role line (Title · first extra stat), expertise chips.
+- `blog_hub_category_icon( $cat )` picks the Browse-by-Category icon from slug/name keywords.
+- `blog_hub_sentence_summary()` builds the TL;DR fallback ending on a full sentence.
+- `BLOG_HUB_VERSION` / style.css Version bumped to 1.0.1 (asset cache-busting) — bump again
+  on every release.
+
+## v1.0.2 (15 Nov 2026) — logo
+- `add_theme_support( 'custom-logo' )` registered in functions.php (flex width/height, 1920x367). Before this the Customizer had no Logo field at all.
+- `blog_hub_logo_img( $class )` returns a bare `<img class="bh-logo ...">` for the custom logo (sizes="240px"). Used in header.php (brand + mobile menu, `bh-logo--mobile`) and footer.php (`bh-logo--footer`) instead of `the_custom_logo()`.
+- The client logo is ONE image (gold SS mark + white wordmark, `25.png.webp`), so when a logo is set, Site Title/Tagline text is not printed next to it in the header. The footer still prints the gold tagline (it's not in the image).
+- CSS at the end of components.css: header 44px tall (38px scrolled, 34px on ≤480px and in the mobile menu); the footer logo fills the 200px `.bh-footer__logo-link`.
+
+## v1.0.3 (15 Nov 2026) — primary category
+- `blog_hub_primary_category()` added; every category label/breadcrumb/related-posts lookup uses it (see known_gotchas).
+- `blog_hub_category_icon()` also maps kerb, road/barrier/safety → fa-road-barrier, basics/guide → fa-book-open, so all 5 approved category names (SITE_CONFIG §6) get icons.
+
+## v1.0.5 (15 Nov 2026) — topic-only category lists
+- `blog_hub_is_topic_category()` (false for blogs/blog/uncategorized/areas-we-serve and children of areas-we-serve) and `blog_hub_topic_categories( $number )` (non-empty, by count, topics only; falls back to all if no topics exist) in functions.php.
+- Used by category-list.php (Browse by Category), category-dropdown.php, category-switcher.php and `blog_hub_footer_blog_categories()`. `blog_hub_primary_category()` uses the same test.
+- `.bh-category-card__title/__desc` are display:block so the description sits under the name (design).
+
+## v1.0.7 (15 Nov 2026) — newsletter via WPForms
+- Customizer `blog_hub_newsletter_shortcode` (sanitised by `blog_hub_sanitize_form_shortcode()`, only `[wpforms id=...]`). newsletter.php renders the band if the shortcode OR `blog_hub_newsletter_action` is set; design wording "Get New Guides in Your Inbox"; plain form posts `EMAIL`.
+- Staging: WPForms form "Newsletter signup" ID 8090, notification to the business Gmail; staging theme now v1.0.7.
+- Testing WPForms locally installs the plugin into wp-content/plugins (repo bind mount → thousands of untracked files). Remove it afterwards (`wp plugin delete wpforms-lite`).
+
+## v1.0.8 (15 Nov 2026) — sticky first row for tables without <thead>
+- article.css: `table:not(:has(thead)) > tbody > tr:first-child > td/th` gets header styling + sticky (top 64px / 96px with admin bar). Old Elementor posts paste tables with no thead.
+- Staging reference article (post 8095): /blogs/choose-np2-np3-np4-rcc-hume-pipe-class/ — block editor, Table block with header, manual excerpt, topic category, author Shubhankar (Title set).

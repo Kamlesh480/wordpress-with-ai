@@ -15,8 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 $is_category    = is_category();
 $is_author      = is_author();
 $is_blog_index  = is_home();
-$cats           = ( $is_category || $is_author || $is_blog_index ) ? array() : get_the_category();
-$primary_cat    = ! empty( $cats ) ? $cats[0] : null;
+$primary_cat    = ( $is_category || $is_author || $is_blog_index ) ? null : blog_hub_primary_category();
 $blog_page      = get_option( 'page_for_posts' );
 $blog_page_name = $blog_page ? get_the_title( $blog_page ) : __( 'Blog', 'blog-hub' );
 $paged          = max( (int) get_query_var( 'paged' ), 1 );

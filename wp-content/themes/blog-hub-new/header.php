@@ -65,7 +65,7 @@ $bh_call_tel        = $bh_call_number ? preg_replace( '/[^0-9+]/', '', $bh_call_
 		<div class="bh-container bh-nav__inner">
 			<a class="bh-brand" href="<?php echo esc_url( home_url( '/' ) ); ?>">
 				<?php if ( has_custom_logo() ) : ?>
-					<?php the_custom_logo(); ?>
+					<?php echo blog_hub_logo_img(); // phpcs:ignore WordPress.Security.EscapeOutput -- wp_get_attachment_image() output. ?>
 				<?php else : ?>
 					<span class="bh-brand__text">
 						<span class="bh-brand__name"><?php bloginfo( 'name' ); ?></span>
@@ -115,7 +115,7 @@ $bh_call_tel        = $bh_call_number ? preg_replace( '/[^0-9+]/', '', $bh_call_
 	<div class="bh-mobile-menu__head">
 		<a href="<?php echo esc_url( home_url( '/' ) ); ?>">
 			<?php if ( has_custom_logo() ) : ?>
-				<?php the_custom_logo(); ?>
+				<?php echo blog_hub_logo_img( 'bh-logo--mobile' ); // phpcs:ignore WordPress.Security.EscapeOutput -- wp_get_attachment_image() output. ?>
 			<?php else : ?>
 				<span class="bh-brand__name"><?php bloginfo( 'name' ); ?></span>
 			<?php endif; ?>
