@@ -111,8 +111,10 @@
 	object-fit: cover;
 }
 
+/* Same width as the featured image and the article container above/below it
+   (Blog Page feedback: "Box width should match with page width"). */
 .bh-article-tldr-wrap {
-	max-width: 820px;
+	max-width: var(--container-max);
 	margin: var(--space-8) auto 0;
 	padding-inline: var(--section-pad-x);
 }
@@ -142,8 +144,10 @@
 	color: var(--text-body);
 }
 
+/* No side padding here: the inner .bh-container already pads the sides, so
+   the text column lines up with the featured image and TL;DR at every width. */
 .bh-article-body-section {
-	padding: var(--space-9) var(--section-pad-x) 0;
+	padding: var(--space-9) 0 0;
 }
 
 .bh-article-layout {
@@ -244,11 +248,40 @@ body.admin-bar .bh-article-content table:not(:has(thead)) > tbody > tr:first-chi
 body.admin-bar .bh-article-content table:not(:has(thead)) > tbody > tr:first-child > th { top: 96px; }
 
 /* Core's table block wraps tables in a scroll container (overflow-x: auto),
-   which disables sticky positioning for anything inside it. On desktop the
-   table fits the column, so let it overflow normally; small screens keep the
-   horizontal scroll (and lose the sticky header, which is fine there). */
-@media (min-width: 768px) {
-	.bh-article-content .wp-block-table { overflow: visible; }
+   which disables sticky positioning for anything inside it, so the header row
+   scrolled away and was cut off at the top on phones. Drop the scroll box at
+   every width and let long words wrap on small screens so the table still
+   fits the column instead of needing a sideways scroll. */
+.bh-article-content .wp-block-table { overflow: visible; }
+
+@media (max-width: 767px) {
+	.bh-article-content table th,
+	.bh-article-content table td {
+		width: auto; /* ignore old fixed width="…" attributes from Elementor/Word */
+		padding: var(--space-2);
+		font-size: 13px;
+		letter-spacing: 0;
+		overflow-wrap: break-word;
+		hyphens: auto;
+	}
+
+	/* Short header labels may break mid-word rather than push a 4-column
+	   table wider than the phone screen. */
+	.bh-article-content thead th { overflow-wrap: anywhere; }
+}
+
+/* Logged-in only: the WP admin bar is 46px tall up to 782px wide, and below
+   600px it scrolls away with the page, leaving just the 64px site header. */
+@media (max-width: 782px) {
+	body.admin-bar .bh-article-content thead th,
+	body.admin-bar .bh-article-content table:not(:has(thead)) > tbody > tr:first-child > td,
+	body.admin-bar .bh-article-content table:not(:has(thead)) > tbody > tr:first-child > th { top: 110px; }
+}
+
+@media (max-width: 600px) {
+	body.admin-bar .bh-article-content thead th,
+	body.admin-bar .bh-article-content table:not(:has(thead)) > tbody > tr:first-child > td,
+	body.admin-bar .bh-article-content table:not(:has(thead)) > tbody > tr:first-child > th { top: 64px; }
 }
 
 .bh-article-content th {
@@ -478,6 +511,15 @@ body.admin-bar .bh-article-content table:not(:has(thead)) > tbody > tr:first-chi
 	gap: var(--space-5);
 	align-self: flex-start;
 	padding-right: 2px;
+}
+
+/* Logged-in: the WP admin bar adds 32px above the fixed header. Desktop
+   only; below 900px the rail is no longer sticky. */
+@media (min-width: 901px) {
+	body.admin-bar .bh-article-rail {
+		top: 120px;
+		max-height: calc(100vh - 120px - 104px);
+	}
 }
 
 .bh-toc {

@@ -24,7 +24,7 @@ with real values pulled from the live site (shubhsanskarconcrete.com) on 22–23
 before going live, don't just paste something in to clear the checkbox.
 
 **Latest update (15 Nov 2026):** the "SSC - Staging vs Design" feedback round. The code fixes
-ship in theme version **1.0.11** (1.0.2 added the full logo image; 1.0.3 fixed which category labels a post; 1.0.4 fixed the Map embed box being impossible to type in; 1.0.5 limited category lists to topic categories; 1.0.6 ignores a Yoast Primary of Blogs/location; 1.0.7 newsletter section works with a WPForms form; 1.0.8 sticky header for old tables without a header row; 1.0.9/1.0.10 "changes log 16/11/26" round, see section 15); everything that still needs doing in wp-admin is collected
+ship in theme version **1.0.13** (1.0.2 added the full logo image; 1.0.3 fixed which category labels a post; 1.0.4 fixed the Map embed box being impossible to type in; 1.0.5 limited category lists to topic categories; 1.0.6 ignores a Yoast Primary of Blogs/location; 1.0.7 newsletter section works with a WPForms form; 1.0.8 sticky header for old tables without a header row; 1.0.9/1.0.10/1.0.11 "changes log 16/11/26" round, see section 15; 1.0.12/1.0.13 Blog Page TL;DR width + sticky table header on phones, see section 16); everything that still needs doing in wp-admin is collected
 in **section 14** at the bottom of this file — start there if you're picking this up fresh.
 
 ---
@@ -1024,3 +1024,16 @@ Short factual text (IS 458 class definitions, no prices) plus links to the class
 design's two-level dropdown appear for RCC Pipes. They use the theme's basic page template (no product-page design yet);
 **not on production** — recreate there (or design proper product sub-pages) before launch. Any other product gets the same
 right-hand box as soon as a page is published with it as Parent.
+
+## 16. "Blog Page" tab follow-up (17 Nov 2026), theme v1.0.12 / v1.0.13
+Code only, nothing to set in wp-admin. Live on staging; solutions with screenshots are under each pointer in the
+Google Doc's "Blog Page" tab.
+
+| Feedback | Fix |
+|---|---|
+| "Box width should match with page width" (TL;DR box) | TL;DR box is now as wide as the featured image and the article text (container width, 1122px on desktop), and all three line up on tablet and mobile too (the article body no longer pads the sides twice). **Differs from Figma** (TL;DR 780px there); changed as per this feedback. |
+| "Tables: the header isn't sticky the right way… cuts off from the top" | Header row sticks right under the site header at every width. On phones, tables were inside WordPress's sideways-scroll box, which stopped the header row sticking; that box is removed and cells wrap instead, so tables fit the screen. Old Elementor/Word tables without a header row use their first row (as in 1.0.8). |
+| (found while testing, logged-in only) | Site header now sits below the WP admin bar instead of under it, and table header rows / the contents box clear both. Visitors are not affected. |
+
+**Production:** just upload v1.0.13 (no admin settings for this round).
+

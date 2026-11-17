@@ -89,6 +89,19 @@ img { max-width: 100%; display: block; }
 	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28);
 }
 
+/* Logged-in only: sit below the WP admin bar (32px, or 46px up to 782px)
+   instead of underneath it. Below 600px the admin bar scrolls away with the
+   page, so the header stays at the very top there. */
+body.admin-bar .bh-header { top: 32px; }
+
+@media (max-width: 782px) {
+	body.admin-bar .bh-header { top: 46px; }
+}
+
+@media (max-width: 600px) {
+	body.admin-bar .bh-header { top: 0; }
+}
+
 .bh-header-spacer {
 	height: 116px;
 }

@@ -228,3 +228,9 @@ needed per environment — not theme code, see that file directly).
 
 ## v1.0.11 (17 Nov 2026) — floating buttons always at the bottom
 - Removed the footer "lift" (initFloatingLift / --bh-fab-lift): user wants Call/WhatsApp fixed in the bottom corners always, as in the design. Instead `.bh-footer .bh-container` (≥600px) gets padding-inline max(section-pad-x, 92px − max(0, (100vw − container-max)/2)) so footer text never sits under the 24–80px button strip.
+
+## v1.0.12 / v1.0.13 (17 Nov 2026) — Blog Page: TL;DR width + sticky table header on phones
+- `.bh-article-tldr-wrap` max-width = var(--container-max) (was 820px) so it matches the featured image (feedback overrides Figma's 780px). `.bh-article-body-section` has no side padding any more (the inner .bh-container already pads) so image, TL;DR and text column align at every width.
+- `.wp-block-table { overflow: visible }` at ALL widths (core's overflow-x:auto kills sticky). ≤767px: cells width:auto, 13px, letter-spacing 0, overflow-wrap:break-word + hyphens:auto; `thead th` overflow-wrap:anywhere so 4-col tables fit 360px.
+- Admin bar: `body.admin-bar .bh-header { top:32px }` (46px ≤782, 0 ≤600). Sticky table header top: 96px desktop, 110px ≤782, 64px ≤600 when logged in. Rail top 120px when logged in (≥901px only — a bare selector would beat the ≤900 `max-height:none`).
+

@@ -113,3 +113,7 @@ WP prints `description` unescaped. The Map embed control's text mentioned `<ifra
 
 ## Staging/live permalinks contain %category% — never bulk-change Yoast Primary
 Post URLs look like `/blogs/<slug>/` (Yoast Primary category in the permalink). Most posts have Yoast Primary = Blogs or a location; changing it changes live URLs. `blog_hub_primary_category()` (v1.0.6) only trusts a Yoast Primary that is a topic, so labels show the topic without touching Primary. Staging got its topic categories assigned 15 Nov 2026 via the REST API from the logged-in wp-admin tab (categories 299/300/302/303/304); production not yet.
+
+- **Sticky inside overflow boxes (v1.0.12):** any ancestor with overflow other than visible (core `.wp-block-table` uses overflow-x:auto) makes `position: sticky` stick to that box instead of the page, so table headers scroll away. Keep `.wp-block-table` overflow visible and make tables fit by wrapping instead.
+- **Google Docs editing via Chrome:** `cmd+Down` jumps to end of the whole doc; screenshots right after a scroll can be stale (wait 1s); drag-dropping an image drops at the mouse point, not the caret, so put the caret on an empty line and drop exactly there.
+
