@@ -26,8 +26,9 @@ $bh_directions_href = $bh_address ? 'https://www.google.com/maps/search/?api=1&q
 ?>
 
 <?php
-// Articles end with their own call-to-action band + Related Articles, so
-// the sitewide quote strip would be a duplicate CTA there.
+// Sitewide quote strip, directly above the footer — but not on articles: the
+// article design (Figma "SSC Page Designs", node 2020:3) ends FAQ → author box
+// → CTA band → Related Articles → footer, with no quote strip.
 if ( ! is_singular( 'post' ) ) :
 	?>
 <section class="bh-quote-strip" aria-label="<?php esc_attr_e( 'Request a quote', 'blog-hub' ); ?>">

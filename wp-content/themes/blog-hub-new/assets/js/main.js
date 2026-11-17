@@ -78,12 +78,18 @@ function initHeader() {
 		var cats   = dd.querySelectorAll( '[data-bh-cat]' );
 		var panels = dd.querySelectorAll( '[data-bh-subpanel]' );
 		var activate = function ( slug ) {
-			cats.forEach( function ( c ) {
-				c.classList.toggle( 'is-active', c.getAttribute( 'data-bh-cat' ) === slug );
-			} );
+			var hasPanel = false;
 			panels.forEach( function ( p ) {
-				p.hidden = p.getAttribute( 'data-bh-subpanel' ) !== slug;
+				var match = p.getAttribute( 'data-bh-subpanel' ) === slug;
+				p.hidden = ! match;
+				hasPanel = hasPanel || match;
 			} );
+			// Only categories with sub-pages get the right-hand box and the
+			// active highlight; the rest collapse the menu to one column.
+			cats.forEach( function ( c ) {
+				c.classList.toggle( 'is-active', hasPanel && c.getAttribute( 'data-bh-cat' ) === slug );
+			} );
+			dd.classList.toggle( 'is-collapsed', ! hasPanel );
 		};
 		cats.forEach( function ( c ) {
 			var go = function () {

@@ -24,31 +24,63 @@ function blog_hub_live_base_url() {
 /**
  * Product categories for the header's "Products" mega-menu and the
  * footer's "Products" column. Matches the live site's current category
- * list — edit here when products are added/renamed.
+ * list — edit here when products are added/renamed. Each category's
+ * sub-items ('subs') are NOT listed here: they are the published child
+ * pages of that category's page (see blog_hub_product_subpages()), so the
+ * menu never links to pages that don't exist.
  */
 function blog_hub_header_product_categories() {
-	$base = blog_hub_live_base_url();
-	return array(
-		array(
-			'slug' => 'rcc-pipes',
-			'name' => __( 'RCC Pipes', 'blog-hub' ),
-			'subs' => array(
-				array( 'label' => __( 'NP2 Pipes', 'blog-hub' ), 'slug' => 'np2-pipes' ),
-				array( 'label' => __( 'NP3 Pipes', 'blog-hub' ), 'slug' => 'np3-pipes' ),
-				array( 'label' => __( 'NP4 Pipes', 'blog-hub' ), 'slug' => 'np4-pipes' ),
-			),
-		),
-		array( 'slug' => 'rcc-manhole-system', 'name' => __( 'RCC Manhole System', 'blog-hub' ), 'subs' => array() ),
-		array( 'slug' => 'sfrc-manhole-cover', 'name' => __( 'SFRC Manhole Cover', 'blog-hub' ), 'subs' => array() ),
-		array( 'slug' => 'concrete-drain-covers', 'name' => __( 'Concrete Drain Covers', 'blog-hub' ), 'subs' => array() ),
-		array( 'slug' => 'cement-paver-blocks', 'name' => __( 'Cement Paver Blocks', 'blog-hub' ), 'subs' => array() ),
-		array( 'slug' => 'concrete-kerb-stone', 'name' => __( 'Concrete Kerb Stone', 'blog-hub' ), 'subs' => array() ),
-		array( 'slug' => 'precast-drain', 'name' => __( 'Precast Drain', 'blog-hub' ), 'subs' => array() ),
-		array( 'slug' => 'concrete-road-barriers', 'name' => __( 'Concrete Road Barriers', 'blog-hub' ), 'subs' => array() ),
-		array( 'slug' => 'rcc-tree-guards', 'name' => __( 'RCC Tree Guards', 'blog-hub' ), 'subs' => array() ),
-		array( 'slug' => 'garden-bench', 'name' => __( 'Garden Bench', 'blog-hub' ), 'subs' => array() ),
-		array( 'slug' => 'customized-products', 'name' => __( 'Customized Products', 'blog-hub' ), 'subs' => array() ),
+	$cats = array(
+		array( 'slug' => 'rcc-pipes', 'name' => __( 'RCC Pipes', 'blog-hub' ) ),
+		array( 'slug' => 'rcc-manhole-system', 'name' => __( 'RCC Manhole System', 'blog-hub' ) ),
+		array( 'slug' => 'sfrc-manhole-cover', 'name' => __( 'SFRC Manhole Cover', 'blog-hub' ) ),
+		array( 'slug' => 'concrete-drain-covers', 'name' => __( 'Concrete Drain Covers', 'blog-hub' ) ),
+		array( 'slug' => 'cement-paver-blocks', 'name' => __( 'Cement Paver Blocks', 'blog-hub' ) ),
+		array( 'slug' => 'concrete-kerb-stone', 'name' => __( 'Concrete Kerb Stone', 'blog-hub' ) ),
+		array( 'slug' => 'precast-drain', 'name' => __( 'Precast Drain', 'blog-hub' ) ),
+		array( 'slug' => 'concrete-road-barriers', 'name' => __( 'Concrete Road Barriers', 'blog-hub' ) ),
+		array( 'slug' => 'rcc-tree-guards', 'name' => __( 'RCC Tree Guards', 'blog-hub' ) ),
+		array( 'slug' => 'garden-bench', 'name' => __( 'Garden Bench', 'blog-hub' ) ),
+		array( 'slug' => 'customized-products', 'name' => __( 'Customized Products', 'blog-hub' ) ),
 	);
+	foreach ( $cats as $k => $cat ) {
+		$cats[ $k ]['subs'] = blog_hub_product_subpages( $cat['slug'] );
+	}
+	return $cats;
+}
+
+/**
+ * Published child pages of a product category page (e.g. pages whose parent
+ * is /rcc-pipes/), in menu order. Empty when the category page doesn't exist
+ * on this site or has no published children.
+ *
+ * @param string $slug Category page slug.
+ * @return array[] Each { label, url }.
+ */
+function blog_hub_product_subpages( $slug ) {
+	static $cache = array();
+	if ( isset( $cache[ $slug ] ) ) {
+		return $cache[ $slug ];
+	}
+	$subs   = array();
+	$parent = get_page_by_path( $slug );
+	if ( $parent && 'publish' === $parent->post_status ) {
+		$children = get_pages(
+			array(
+				'parent'      => $parent->ID,
+				'post_status' => 'publish',
+				'sort_column' => 'menu_order,post_title',
+			)
+		);
+		foreach ( $children as $child ) {
+			$subs[] = array(
+				'label' => get_the_title( $child ),
+				'url'   => get_permalink( $child ),
+			);
+		}
+	}
+	$cache[ $slug ] = $subs;
+	return $subs;
 }
 
 /**
@@ -158,13 +190,17 @@ function blog_hub_render_header_dropdown( $key ) {
 	switch ( $key ) {
 		case 'products':
 			?>
-			<?php $bh_cats = blog_hub_header_product_categories(); ?>
-			<div class="bh-dropdown bh-dropdown--products" id="bh-dd-products" data-bh-dropdown>
+			<?php
+			$bh_cats     = blog_hub_header_product_categories();
+			$bh_has_subs = (bool) array_filter( wp_list_pluck( $bh_cats, 'subs' ) );
+			$bh_first    = ! empty( $bh_cats[0]['subs'] );
+			?>
+			<div class="bh-dropdown bh-dropdown--products<?php echo $bh_first ? '' : ' is-collapsed'; ?>" id="bh-dd-products" data-bh-dropdown>
 				<div class="bh-dropdown__body">
 					<ul class="bh-dropdown__cats">
 						<?php foreach ( $bh_cats as $i => $cat ) : ?>
 							<li>
-								<a class="bh-dropdown__cat<?php echo 0 === $i ? ' is-active' : ''; ?>" href="<?php echo esc_url( blog_hub_product_url( $cat['slug'] ) ); ?>" data-bh-cat="<?php echo esc_attr( $cat['slug'] ); ?>">
+								<a class="bh-dropdown__cat<?php echo ( 0 === $i && $bh_first ) ? ' is-active' : ''; ?>" href="<?php echo esc_url( blog_hub_product_url( $cat['slug'] ) ); ?>" data-bh-cat="<?php echo esc_attr( $cat['slug'] ); ?>">
 									<span><?php echo esc_html( $cat['name'] ); ?></span>
 									<?php if ( ! empty( $cat['subs'] ) ) : ?>
 										<i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
@@ -173,17 +209,21 @@ function blog_hub_render_header_dropdown( $key ) {
 							</li>
 						<?php endforeach; ?>
 					</ul>
+					<?php if ( $bh_has_subs ) : ?>
 					<div class="bh-dropdown__subs">
 						<?php foreach ( $bh_cats as $i => $cat ) : ?>
-							<div class="bh-dropdown__subpanel" data-bh-subpanel="<?php echo esc_attr( $cat['slug'] ); ?>"<?php echo 0 === $i ? '' : ' hidden'; ?>>
+							<?php
+							if ( empty( $cat['subs'] ) ) {
+								continue;
+							}
+							?>
+							<div class="bh-dropdown__subpanel" data-bh-subpanel="<?php echo esc_attr( $cat['slug'] ); ?>"<?php echo ( 0 === $i ) ? '' : ' hidden'; ?>>
 								<span class="bh-dropdown__subhead"><?php echo esc_html( $cat['name'] ); ?></span>
-								<?php if ( ! empty( $cat['subs'] ) ) : ?>
-									<ul>
-										<?php foreach ( $cat['subs'] as $sub ) : ?>
-											<li><a href="<?php echo esc_url( blog_hub_product_url( $cat['slug'], $sub['slug'] ) ); ?>"><?php echo esc_html( $sub['label'] ); ?></a></li>
-										<?php endforeach; ?>
-									</ul>
-								<?php endif; ?>
+								<ul>
+									<?php foreach ( $cat['subs'] as $sub ) : ?>
+										<li><a href="<?php echo esc_url( $sub['url'] ); ?>"><?php echo esc_html( $sub['label'] ); ?></a></li>
+									<?php endforeach; ?>
+								</ul>
 								<a class="bh-dropdown__goto" href="<?php echo esc_url( blog_hub_product_url( $cat['slug'] ) ); ?>">
 									<?php
 									/* translators: %s: product category name */
@@ -194,6 +234,7 @@ function blog_hub_render_header_dropdown( $key ) {
 							</div>
 						<?php endforeach; ?>
 					</div>
+					<?php endif; ?>
 				</div>
 				<a class="bh-dropdown__all" href="<?php echo esc_url( blog_hub_header_products_url() ); ?>">
 					<?php esc_html_e( 'View All Products', 'blog-hub' ); ?>
@@ -273,7 +314,7 @@ function blog_hub_render_mobile_header_dropdown( $key ) {
 						<?php if ( ! empty( $cat['subs'] ) ) : ?>
 							<ul class="bh-mobile-menu__subsub">
 								<?php foreach ( $cat['subs'] as $sub ) : ?>
-									<li><a href="<?php echo esc_url( blog_hub_product_url( $cat['slug'], $sub['slug'] ) ); ?>"><?php echo esc_html( $sub['label'] ); ?></a></li>
+									<li><a href="<?php echo esc_url( $sub['url'] ); ?>"><?php echo esc_html( $sub['label'] ); ?></a></li>
 								<?php endforeach; ?>
 							</ul>
 						<?php endif; ?>

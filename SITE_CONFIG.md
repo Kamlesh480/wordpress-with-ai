@@ -24,7 +24,7 @@ with real values pulled from the live site (shubhsanskarconcrete.com) on 22–23
 before going live, don't just paste something in to clear the checkbox.
 
 **Latest update (15 Nov 2026):** the "SSC - Staging vs Design" feedback round. The code fixes
-ship in theme version **1.0.8** (1.0.2 added the full logo image; 1.0.3 fixed which category labels a post; 1.0.4 fixed the Map embed box being impossible to type in; 1.0.5 limited category lists to topic categories; 1.0.6 ignores a Yoast Primary of Blogs/location; 1.0.7 newsletter section works with a WPForms form; 1.0.8 sticky header for old tables without a header row); everything that still needs doing in wp-admin is collected
+ship in theme version **1.0.11** (1.0.2 added the full logo image; 1.0.3 fixed which category labels a post; 1.0.4 fixed the Map embed box being impossible to type in; 1.0.5 limited category lists to topic categories; 1.0.6 ignores a Yoast Primary of Blogs/location; 1.0.7 newsletter section works with a WPForms form; 1.0.8 sticky header for old tables without a header row; 1.0.9/1.0.10 "changes log 16/11/26" round, see section 15); everything that still needs doing in wp-admin is collected
 in **section 14** at the bottom of this file — start there if you're picking this up fresh.
 
 ---
@@ -80,7 +80,7 @@ before this goes live** — these are safe placeholders for staging only.
 - ⬜ **Phone** — real number confirmed live (22 Oct 2026), replacing the placeholder.
   Paste this value:
   ```
-  +91 7042103883
+  +91 70421 03883
   ```
 
 - ⬜ **Phone 2** *(shown in the header top bar and, as of 15 Nov 2026, also in the
@@ -89,7 +89,7 @@ before this goes live** — these are safe placeholders for staging only.
   first, ahead of Phone 1 — check if that order matters once the theme is live.
   Paste this value:
   ```
-  +91 9217021955
+  +91 92170 21955
   ```
 
 - ⬜ **Address** — real address confirmed on the live footer and `/contact/` (22 Oct 2026),
@@ -991,3 +991,36 @@ addresses, social links, newsletter URL) for the real business details** — the
 values in this file are safe, working examples for staging, not final production
 content. Keep a copy of this file's checkboxes (or a duplicate) per environment so
 it's clear what's been configured where.
+
+
+## 15. "changes log 16/11/26" feedback round (17 Nov 2026)
+
+All verified on staging (theme v1.0.11). Proof with screenshots: Google Doc *SSC - Staging vs
+Design*, tab **"Fixes 17/11/26"**. Reference article:
+https://shubhsanskarconcrete.com/staging-test-789/blogs/choose-np2-np3-np4-rcc-hume-pipe-class/
+
+| # | Item | Fix |
+|---|---|---|
+| 1 | Products dropdown right box on every category | Code: sub-items = published **child pages** of each product page; box + "›" only when a category has some. The old hardcoded NP2/NP3/NP4 links pointed to pages that don't exist. To add sub-items, publish pages with the product page as Parent (e.g. "NP2 Pipes" under "RCC Pipes"). |
+| 5 | Call + WhatsApp both bottom-right | Code (v1.0.11): Call bottom-left, WhatsApp bottom-right, **always fixed in the bottom corners** (also over the footer, as in the design). Footer content gets just enough side padding on narrower screens to stay clear of them; TOC box ends above them; mobile unchanged (sticky bar). |
+| 6 | Fake phone/email | Admin (done on staging): Contact Details → real phones/email (section 2). |
+| 7 | Wrong address | Admin (done on staging): real Faridabad address (section 2). |
+| 9 | No company in copyright | Admin (done on staging): **Site Title was empty** → "Shubh Sanskar Concrete". |
+| 10 | No FAQ | Content: Heading + Group block with CSS class `bh-faqs` + one Details block per question, at the end of the post (before the author box). |
+| 12 | End order | Code (v1.0.10), confirmed against the Figma article design (SSC Page Designs, node 2020:3): body ending with the FAQ → author box → CTA band → Related Articles → footer. **No quote strip on articles** (it stays on all other pages). |
+
+**Production:** after uploading v1.0.11, repeat items 6, 7 and 9 in Customize (Site Identity + Contact Details).
+
+### Design vs feedback: where they differ and what we followed (also in the Google Doc, "Fixes 17/11/26" tab)
+1. **End of article** → **design** (Figma article frame, node 2020:3): FAQ → author box → CTA band → Related Articles → footer, no quote strip on articles.
+2. **Call button position** → **feedback**: Call bottom-left, WhatsApp bottom-right (the changes log says the design's both-right layout was wrong).
+3. **Products dropdown sub-items** → **feedback**: only real published child pages are shown; the design's NP2/NP3/NP4 appear once those pages exist under RCC Pipes.
+4. **Blog category names** → **approved mapping (2 Nov 2026)**, not the design's placeholder names; no cement-pole posts, so that category stays hidden.
+
+### Products dropdown sub-pages (staging, 17 Nov 2026)
+Published on staging as child pages of **RCC Pipes** (Page Attributes → Parent = RCC Pipes, Order 1-3):
+**NP2 Pipes** (`/rcc-pipes/np2-pipes/`), **NP3 Pipes** (`/rcc-pipes/np3-pipes/`), **NP4 Pipes** (`/rcc-pipes/np4-pipes/`).
+Short factual text (IS 458 class definitions, no prices) plus links to the class-choice guide and Contact. They make the
+design's two-level dropdown appear for RCC Pipes. They use the theme's basic page template (no product-page design yet);
+**not on production** — recreate there (or design proper product sub-pages) before launch. Any other product gets the same
+right-hand box as soon as a page is published with it as Parent.

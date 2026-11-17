@@ -471,7 +471,8 @@ body.admin-bar .bh-article-content table:not(:has(thead)) > tbody > tr:first-chi
 	min-width: 200px;
 	position: sticky;
 	top: 88px; /* clears the 64px fixed header (scrolled state) + gap */
-	max-height: calc(100vh - 112px);
+	/* ends above the 56px floating WhatsApp/Call buttons (24px from bottom) */
+	max-height: calc(100vh - 88px - 104px);
 	overflow-y: auto;
 	display: grid;
 	gap: var(--space-5);

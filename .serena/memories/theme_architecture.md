@@ -215,3 +215,16 @@ needed per environment — not theme code, see that file directly).
 ## v1.0.8 (15 Nov 2026) — sticky first row for tables without <thead>
 - article.css: `table:not(:has(thead)) > tbody > tr:first-child > td/th` gets header styling + sticky (top 64px / 96px with admin bar). Old Elementor posts paste tables with no thead.
 - Staging reference article (post 8095): /blogs/choose-np2-np3-np4-rcc-hume-pipe-class/ — block editor, Table block with header, manual excerpt, topic category, author Shubhankar (Title set).
+
+## v1.0.9 (17 Nov 2026) — "changes log 16/11/26" round
+- Products dropdown: `blog_hub_product_subpages($slug)` builds subs from published child pages of the product page; no hardcoded subs. `.bh-dropdown--products.is-collapsed` (300px, one column) when the hovered/first category has no subs; JS toggles it.
+- Floating buttons: `.bh-floating-actions{display:contents}`, each btn fixed (call left / whatsapp right), bottom = 24px + `--bh-fab-lift` set by `initFloatingLift()` in main.js (lifts above footer). Article TOC rail max-height calc(100vh - 192px).
+- Quote strip now shows on single posts too (after Related Articles).
+- FAQ = content: Group block class `bh-faqs` + core Details blocks (styled by article.css).
+- Staging Site Title was empty (copyright line lacked company name) — set 17 Nov 2026.
+
+## v1.0.10 (17 Nov 2026) — article end order per Figma
+- Figma "SSC Page Designs" (file ohBtfaXJIG7WqbqwDjC4OQ, article frame node 2020:3): article body ends with FAQ → author box → CTA band (image) → Related Articles → footer. NO quote strip on single posts, so footer.php wraps the quote strip in `if ( ! is_singular( 'post' ) )` again. When feedback conflicts, check this Figma frame.
+
+## v1.0.11 (17 Nov 2026) — floating buttons always at the bottom
+- Removed the footer "lift" (initFloatingLift / --bh-fab-lift): user wants Call/WhatsApp fixed in the bottom corners always, as in the design. Instead `.bh-footer .bh-container` (≥600px) gets padding-inline max(section-pad-x, 92px − max(0, (100vw − container-max)/2)) so footer text never sits under the 24–80px button strip.

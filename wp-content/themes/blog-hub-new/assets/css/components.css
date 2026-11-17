@@ -261,6 +261,12 @@ img { max-width: 100%; display: block; }
 	grid-template-columns: 300px 1fr;
 }
 
+/* No sub-pages for the hovered category (or none at all): one column only. */
+.bh-dropdown--products.is-collapsed { width: 300px; }
+.bh-dropdown--products.is-collapsed .bh-dropdown__body { grid-template-columns: 1fr; }
+.bh-dropdown--products.is-collapsed .bh-dropdown__subs { display: none; }
+.bh-dropdown--products.is-collapsed .bh-dropdown__cats { border-right: 0; }
+
 .bh-dropdown--products .bh-dropdown__cats {
 	list-style: none;
 	margin: 0;
@@ -1647,15 +1653,27 @@ img { max-width: 100%; display: block; }
    Floating WhatsApp/Call buttons + mobile sticky contact bar
    ========================================================================== */
 
-.bh-floating-actions {
+/* Call bottom-left, WhatsApp bottom-right, always fixed to the bottom corners
+   (also over the footer, as in the design). They sit in the 24-80px strip
+   at each screen edge; the footer padding rule below keeps footer text out
+   of that strip on narrower screens so the buttons never cover it. */
+.bh-floating-actions { display: contents; }
+
+.bh-floating-actions__btn {
 	position: fixed;
-	right: 24px;
-	bottom: 16px;
+	bottom: 24px;
 	z-index: 40;
-	display: flex;
-	flex-direction: column;
-	gap: 12px;
 }
+
+@media (min-width: 600px) {
+	.bh-footer .bh-container {
+		/* At least 92px (button strip + 12px gap) between screen edge and text. */
+		padding-inline: max( var(--section-pad-x), calc( 92px - max( 0px, ( 100vw - var(--container-max) ) / 2 ) ) );
+	}
+}
+
+.bh-floating-actions__btn--whatsapp { right: 24px; }
+.bh-floating-actions__btn--call { left: 24px; }
 
 .bh-floating-actions__btn {
 	width: 56px;
@@ -1746,7 +1764,8 @@ img { max-width: 100%; display: block; }
 		justify-content: center;
 	}
 	.bh-sticky-contact { display: grid; }
-	.bh-floating-actions { display: none; }
+	.bh-floating-actions,
+	.bh-floating-actions__btn { display: none; }
 }
 
 @media (max-width: 1024px) {
