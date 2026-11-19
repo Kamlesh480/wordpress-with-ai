@@ -174,8 +174,11 @@
 	line-height: var(--lh-h1);
 	font-weight: var(--fw-regular);
 	color: var(--text-heading);
-	scroll-margin-top: 24px;
+	/* clears the 64px fixed header when jumped to from the TOC */
+	scroll-margin-top: 88px;
 }
+
+body.admin-bar .bh-article-content h2 { scroll-margin-top: 120px; }
 
 .bh-article-content h3 {
 	font-size: var(--fs-h4);
@@ -554,6 +557,28 @@ body.admin-bar .bh-article-content table:not(:has(thead)) > tbody > tr:first-chi
 .bh-toc a.is-active {
 	color: var(--text-heading);
 	font-weight: var(--fw-bold);
+}
+
+/* Collapsible TOC under the TL;DR: phones/tablets only (≤900px, where the
+   rail stops being a sidebar and drops below the article). */
+.bh-toc-mobile-wrap { display: none; }
+
+.bh-toc--mobile summary {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	cursor: pointer;
+	list-style: none;
+}
+
+.bh-toc--mobile summary::-webkit-details-marker { display: none; }
+.bh-toc--mobile summary i { font-size: 12px; color: var(--gold-500); transition: transform 0.2s ease; }
+.bh-toc--mobile[open] summary i { transform: rotate(180deg); }
+.bh-toc--mobile:not([open]) { gap: 0; }
+
+@media (max-width: 900px) {
+	.bh-toc-mobile-wrap { display: block; margin-top: var(--space-6); }
+	.bh-article-rail .bh-toc { display: none; }
 }
 
 .bh-rail-cta {

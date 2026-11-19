@@ -78,6 +78,23 @@ $toc = blog_hub_toc_from_content( get_the_content() );
 		</div>
 	<?php endif; ?>
 
+	<?php if ( ! empty( $toc['items'] ) ) : ?>
+		<?php // Phones/tablets only (CSS): the rail TOC drops to the end of the article there, so show a collapsible copy right under the TL;DR. ?>
+		<div class="bh-container bh-toc-mobile-wrap">
+			<details class="bh-toc bh-toc--mobile" data-bh-toc-mobile>
+				<summary class="bh-toc__label">
+					<?php esc_html_e( 'Table of Contents', 'blog-hub' ); ?>
+					<i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+				</summary>
+				<ul>
+					<?php foreach ( $toc['items'] as $item ) : ?>
+						<li><a href="#<?php echo esc_attr( $item['id'] ); ?>"><?php echo esc_html( $item['label'] ); ?></a></li>
+					<?php endforeach; ?>
+				</ul>
+			</details>
+		</div>
+	<?php endif; ?>
+
 	<section class="bh-article-body-section">
 		<div class="bh-container">
 			<div class="bh-article-layout">

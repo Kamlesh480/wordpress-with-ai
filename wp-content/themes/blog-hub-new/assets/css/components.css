@@ -656,12 +656,14 @@ body.admin-bar .bh-header { top: 32px; }
 
 .bh-breadcrumb ol {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
-	gap: 12px;
+	gap: 4px 12px;
 	padding-block: 17.6px;
 	font-size: 14px;
 }
 
+.bh-breadcrumb li { white-space: nowrap; } /* wrap between crumbs, never inside one */
 .bh-breadcrumb a { color: var(--gold-500); }
 .bh-breadcrumb span:not(:last-child) { color: var(--text-muted); }
 .bh-breadcrumb li[aria-current] { color: var(--text-muted); }

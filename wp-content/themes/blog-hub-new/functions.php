@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'BLOG_HUB_VERSION', '1.0.13' );
+define( 'BLOG_HUB_VERSION', '1.0.14' );
 
 require_once get_template_directory() . '/inc/main-site.php';
 require_once get_template_directory() . '/inc/site-header-footer.php';

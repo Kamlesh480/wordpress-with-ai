@@ -62,6 +62,25 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		}
 	}
 
+	// Mobile TOC: fold it away once a section is picked. Fold FIRST, then
+	// scroll, otherwise the list collapsing shifts the page and the jump
+	// overshoots the heading.
+	var mobileToc = document.querySelector( '[data-bh-toc-mobile]' );
+	if ( mobileToc ) {
+		mobileToc.querySelectorAll( 'a' ).forEach( function ( link ) {
+			link.addEventListener( 'click', function ( e ) {
+				var target = document.getElementById( link.getAttribute( 'href' ).slice( 1 ) );
+				mobileToc.open = false;
+				if ( target ) {
+					e.preventDefault();
+					e.stopImmediatePropagation();
+					var reduce = window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
+					target.scrollIntoView( { behavior: reduce ? 'auto' : 'smooth', block: 'start' } );
+				}
+			} );
+		} );
+	}
+
 	// Back-to-top button: fade in after scrolling past one viewport height.
 	var backToTop = document.querySelector( '[data-blog-hub-back-to-top]' );
 	if ( backToTop ) {

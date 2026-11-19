@@ -1,8 +1,8 @@
 <?php
 /**
- * Breadcrumb trail: Home / Blog / Category / Post title.
+ * Breadcrumb trail: Home / Blog / Category.
  * Used on the blog listing (Home / Blog, Blog as the current crumb), single
- * posts (Home / Blog / Category / Post title), category archives
+ * posts (Home / Blog / Category; the title is the H1 below), category archives
  * (Home / Blog / Category, with the category itself as the current,
  * non-linked crumb), and author archives (Home / Blog / Author name).
  * Skips any crumb that doesn't apply.
@@ -49,12 +49,16 @@ $paged          = max( (int) get_query_var( 'paged' ), 1 );
 					<li><span aria-hidden="true">/</span></li>
 					<li aria-current="page"><?php the_author_meta( 'display_name', get_queried_object_id() ); ?></li>
 				<?php else : ?>
-					<?php if ( $primary_cat ) : ?>
+					<?php
+					// Posts stop at the category: the post title is the H1 right
+					// below, and repeating it made the trail wrap into a tall
+					// block on phones. The JSON-LD breadcrumb keeps the full
+					// trail (blog_hub_breadcrumb_schema()).
+					if ( $primary_cat ) :
+						?>
 						<li><span aria-hidden="true">/</span></li>
 						<li><a href="<?php echo esc_url( get_category_link( $primary_cat ) ); ?>"><?php echo esc_html( $primary_cat->name ); ?></a></li>
 					<?php endif; ?>
-					<li><span aria-hidden="true">/</span></li>
-					<li aria-current="page"><?php the_title(); ?></li>
 				<?php endif; ?>
 			<?php endif; ?>
 		</ol>

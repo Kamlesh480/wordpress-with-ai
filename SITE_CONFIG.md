@@ -24,7 +24,7 @@ with real values pulled from the live site (shubhsanskarconcrete.com) on 22–23
 before going live, don't just paste something in to clear the checkbox.
 
 **Latest update (15 Nov 2026):** the "SSC - Staging vs Design" feedback round. The code fixes
-ship in theme version **1.0.13** (1.0.2 added the full logo image; 1.0.3 fixed which category labels a post; 1.0.4 fixed the Map embed box being impossible to type in; 1.0.5 limited category lists to topic categories; 1.0.6 ignores a Yoast Primary of Blogs/location; 1.0.7 newsletter section works with a WPForms form; 1.0.8 sticky header for old tables without a header row; 1.0.9/1.0.10/1.0.11 "changes log 16/11/26" round, see section 15; 1.0.12/1.0.13 Blog Page TL;DR width + sticky table header on phones, see section 16); everything that still needs doing in wp-admin is collected
+ship in theme version **1.0.14** (1.0.2 added the full logo image; 1.0.3 fixed which category labels a post; 1.0.4 fixed the Map embed box being impossible to type in; 1.0.5 limited category lists to topic categories; 1.0.6 ignores a Yoast Primary of Blogs/location; 1.0.7 newsletter section works with a WPForms form; 1.0.8 sticky header for old tables without a header row; 1.0.9/1.0.10/1.0.11 "changes log 16/11/26" round, see section 15; 1.0.12/1.0.13 Blog Page TL;DR width + sticky table header on phones, see section 16; 1.0.14 shorter breadcrumb + mobile Table of Contents, see section 17); everything that still needs doing in wp-admin is collected
 in **section 14** at the bottom of this file — start there if you're picking this up fresh.
 
 ---
@@ -1036,4 +1036,15 @@ Google Doc's "Blog Page" tab.
 | (found while testing, logged-in only) | Site header now sits below the WP admin bar instead of under it, and table header rows / the contents box clear both. Visitors are not affected. |
 
 **Production:** just upload v1.0.13 (no admin settings for this round).
+
+## 17. Mobile feedback (18 Nov 2026), theme v1.0.14
+Code only, nothing to set in wp-admin.
+
+| Feedback | Fix |
+|---|---|
+| Breadcrumb takes too much space at the top on mobile | Blog posts now show **Home / Blog / Category** (post title removed, it is the big heading right below). Crumbs wrap between items, never inside one. Applies at all widths. Google's breadcrumb data (JSON-LD) still has the full trail. |
+| Table of Contents shows at the bottom on mobile | Phones/tablets (≤900px): a collapsible "Table of Contents" box right under the TL;DR, closed by default; tapping a section jumps to it and folds the box. The copy at the bottom is hidden there. Desktop unchanged (sidebar). |
+| (found while testing) | Jumping to a section from the TOC no longer hides the heading under the fixed header. |
+
+**Production:** just upload v1.0.14.
 
