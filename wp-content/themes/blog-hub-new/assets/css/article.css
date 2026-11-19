@@ -342,7 +342,24 @@ body.admin-bar .bh-article-content table:not(:has(thead)) > tbody > tr:first-chi
 
 .bh-article-content img { width: 100%; height: auto; }
 
-.bh-article-content a { color: var(--link); }
+/* Article links: darker than the gold accent and underlined, so they read as
+   links; navy on hover like the header/footer links. */
+/* The :not() list keeps buttons and image links out, and raises specificity
+   above Elementor's `.elementor a { text-decoration: none }`, which loads
+   after this file on posts built with Elementor. */
+.bh-article-content a:not(.bh-btn):not(.elementor-button):not(.wp-block-button__link):not(:has(> img)) {
+	color: var(--link-strong);
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 3px;
+	transition: color 0.15s ease;
+}
+
+.bh-article-content a:not(.bh-btn):not(.elementor-button):not(.wp-block-button__link):not(:has(> img)):hover,
+.bh-article-content a:not(.bh-btn):not(.elementor-button):not(.wp-block-button__link):not(:has(> img)):focus-visible {
+	color: var(--navy-900);
+	text-decoration-thickness: 2px;
+}
 
 /* Numbered step list — apply class "bh-steps" to an <ol> in post content.
    Every child of <li> after the counter badge (heading, paragraph, or any
@@ -503,7 +520,7 @@ body.admin-bar .bh-article-content table:not(:has(thead)) > tbody > tr:first-chi
 
 /* Beat the generic gold `.bh-article-content a` link color, which otherwise
    makes the button label gold-on-gold (invisible). */
-.bh-article-content .bh-mid-cta .bh-btn { color: var(--navy-900); }
+.bh-article-content .bh-mid-cta .bh-btn { color: var(--text-heading); }
 
 /* ---- Sticky rail ---- */
 
@@ -556,12 +573,24 @@ body.admin-bar .bh-article-content table:not(:has(thead)) > tbody > tr:first-chi
 
 .bh-toc a {
 	font-size: var(--fs-small);
-	color: var(--link);
+	color: var(--link-strong);
+	text-decoration: none;
+	transition: color 0.15s ease;
 }
 
+.bh-toc a:hover,
+.bh-toc a:focus-visible {
+	color: var(--navy-900);
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+/* Section currently in view (scroll-spy). */
 .bh-toc a.is-active {
-	color: var(--text-heading);
+	color: var(--navy-900);
 	font-weight: var(--fw-bold);
+	box-shadow: inset 3px 0 0 var(--gold-500);
+	padding-left: var(--space-2);
 }
 
 /* Collapsible TOC under the TL;DR: phones/tablets only (≤900px, where the
@@ -883,3 +912,37 @@ body.admin-bar .bh-article-content table:not(:has(thead)) > tbody > tr:first-chi
 		overflow-wrap: anywhere;
 	}
 }
+
+/* Author pull-quote card (design: cream box, gold quote mark, italic quote,
+   "— Name, Title"). Also used for any blockquote written in an article. */
+.bh-article-content .bh-quote-card,
+.bh-article-content blockquote {
+	margin: 0;
+	padding: var(--space-6) var(--space-7);
+	background: var(--surface-tint);
+	border: none;
+}
+
+.bh-article-content .bh-quote-card > i {
+	display: block;
+	margin-bottom: var(--space-3);
+	font-size: 26px;
+	color: var(--gold-500);
+}
+
+.bh-article-content .bh-quote-card p {
+	margin: 0;
+	font-size: var(--fs-h3);
+	line-height: 1.5;
+	font-style: italic;
+	color: var(--text-heading);
+}
+
+.bh-article-content .bh-quote-card cite {
+	display: block;
+	margin-top: var(--space-4);
+	font-size: var(--fs-small);
+	font-style: normal;
+	color: var(--text-muted);
+}
+

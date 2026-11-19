@@ -29,24 +29,28 @@ $is_first_page = ( 1 === $paged );
 // Featured post: the most recent "sticky" post, falling back to the latest
 // post. Shown only on page 1, but always excluded from the grid query below
 // so it can't also reappear further down the listing on page 2+.
+// Areas We Serve location posts are not blogs: keep them out of the listing.
+$bh_not_areas   = blog_hub_area_category_ids();
 $featured_query = new WP_Query(
 	array(
 		'posts_per_page'      => 1,
 		'post__in'            => get_option( 'sticky_posts' ),
 		'ignore_sticky_posts' => 1,
+		'category__not_in'    => $bh_not_areas,
 	)
 );
 if ( ! $featured_query->have_posts() ) {
-	$featured_query = new WP_Query( array( 'posts_per_page' => 1 ) );
+	$featured_query = new WP_Query( array( 'posts_per_page' => 1, 'category__not_in' => $bh_not_areas ) );
 }
 $featured_id = $featured_query->have_posts() ? $featured_query->posts[0]->ID : 0;
 
 // Latest posts grid, excluding the featured post, paged.
 $latest_query = new WP_Query(
 	array(
-		'posts_per_page' => 12,
-		'post__not_in'   => array( $featured_id ),
-		'paged'          => $paged,
+		'posts_per_page'   => 12,
+		'post__not_in'     => array( $featured_id ),
+		'category__not_in' => $bh_not_areas,
+		'paged'            => $paged,
 	)
 );
 ?>
@@ -125,7 +129,7 @@ $latest_query = new WP_Query(
 						<div class="bh-share">
 							<a href="https://wa.me/?text=<?php echo rawurlencode( get_the_title( $featured_id ) . ' ' . $featured_permalink ); ?>" target="_blank" rel="noopener" aria-label="<?php esc_attr_e( 'Share on WhatsApp', 'blog-hub' ); ?>"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i></a>
 							<a href="https://www.linkedin.com/sharing/share-offsite/?url=<?php echo rawurlencode( $featured_permalink ); ?>" target="_blank" rel="noopener" aria-label="<?php esc_attr_e( 'Share on LinkedIn', 'blog-hub' ); ?>"><i class="fa-brands fa-linkedin-in" aria-hidden="true"></i></a>
-							<a href="https://twitter.com/intent/tweet?url=<?php echo rawurlencode( $featured_permalink ); ?>" target="_blank" rel="noopener" aria-label="<?php esc_attr_e( 'Share on X', 'blog-hub' ); ?>"><i class="fa-brands fa-x-twitter" aria-hidden="true"></i></a>
+							<a href="https://x.com/intent/post?url=<?php echo rawurlencode( $featured_permalink ); ?>" target="_blank" rel="noopener" aria-label="<?php esc_attr_e( 'Share on X', 'blog-hub' ); ?>"><i class="fa-brands fa-x-twitter" aria-hidden="true"></i></a>
 						</div>
 					</div>
 				</div>

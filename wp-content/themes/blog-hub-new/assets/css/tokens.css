@@ -26,6 +26,7 @@
 	--text-accent: var(--gold-500);
 	--text-on-dark: #ccd6df;
 	--link: var(--gold-500);
+	--link-strong: #7a5f22; /* readable on white (5.9:1), still in the gold family */
 	--icon-accent: var(--gold-500);
 	--border-default: #dddbd0;
 	--border-on-dark: rgba(255, 255, 255, 0.18);

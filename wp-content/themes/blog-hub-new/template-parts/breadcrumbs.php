@@ -13,6 +13,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 $is_category    = is_category();
+// Areas We Serve location posts and area categories: Home / Areas We Serve / State.
+$bh_area_cat = null;
+if ( is_singular( 'post' ) && blog_hub_is_area_post( get_queried_object_id() ) ) {
+	$bh_area_cat = blog_hub_area_post_category( get_queried_object_id() );
+} elseif ( $is_category && in_array( (int) get_queried_object_id(), blog_hub_area_category_ids(), true ) ) {
+	$bh_area_cat = get_queried_object();
+}
 $is_author      = is_author();
 $is_blog_index  = is_home();
 $primary_cat    = ( $is_category || $is_author || $is_blog_index ) ? null : blog_hub_primary_category();
@@ -24,7 +31,20 @@ $paged          = max( (int) get_query_var( 'paged' ), 1 );
 	<div class="bh-container">
 		<ol>
 			<li><a href="<?php echo esc_url( home_url( '/' ) ); ?>"><?php esc_html_e( 'Home', 'blog-hub' ); ?></a></li>
-			<?php if ( $is_blog_index && $paged > 1 ) : ?>
+			<?php if ( $bh_area_cat ) : ?>
+				<?php
+				$bh_trail = blog_hub_area_trail( $bh_area_cat );
+				$bh_last  = count( $bh_trail ) - 1;
+				foreach ( $bh_trail as $bh_i => $bh_item ) :
+					?>
+					<li><span aria-hidden="true">/</span></li>
+					<?php if ( $is_category && $bh_i === $bh_last ) : ?>
+						<li aria-current="page"><?php echo esc_html( $bh_item[0] ); ?></li>
+					<?php else : ?>
+						<li><a href="<?php echo esc_url( $bh_item[1] ); ?>"><?php echo esc_html( $bh_item[0] ); ?></a></li>
+					<?php endif; ?>
+				<?php endforeach; ?>
+			<?php elseif ( $is_blog_index && $paged > 1 ) : ?>
 				<li><span aria-hidden="true">/</span></li>
 				<li><a href="<?php echo esc_url( $blog_page ? get_permalink( $blog_page ) : home_url( '/' ) ); ?>"><?php echo esc_html( $blog_page_name ); ?></a></li>
 				<li><span aria-hidden="true">/</span></li>

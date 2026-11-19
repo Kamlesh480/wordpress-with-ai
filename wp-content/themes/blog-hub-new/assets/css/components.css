@@ -1824,3 +1824,33 @@ body.admin-bar .bh-header { top: 32px; }
 .bh-logo--mobile, .bh-header.is-scrolled .bh-logo--mobile { height: 34px; }
 .bh-logo--footer { height: auto; width: 100%; }
 @media (max-width: 480px) { .bh-brand .bh-logo { height: 34px; } }
+
+/* CTA buttons in blog content: black label on gold (Prod feedback). The
+   header "Call Now" button keeps its navy label. */
+.bh-project-cta .bh-btn--gold,
+.bh-cta-strip .bh-btn,
+.bh-mid-cta .bh-btn,
+.bh-article-content .bh-mid-cta .bh-btn {
+	color: var(--text-heading);
+}
+
+/* Elementor's Font Awesome 5 file (loaded on Elementor-built posts) gives
+   .fa-x-twitter a code its own font has, which shows as an empty box in
+   Font Awesome 6. Pin the Font Awesome 6 X glyph. */
+.fa-brands.fa-x-twitter::before,
+.fab.fa-x-twitter::before { content: "\e61b"; }
+
+/* Elementor buttons inside articles (the gold "E-mail Your Requirements" /
+   "Call Now" buttons in the Areas We Serve location posts): black label on
+   gold, like the theme's CTA buttons. Elementor's default is white, and the
+   article link colour used to make it gold-on-gold (invisible). */
+.bh-article-content .elementor-button,
+.bh-article-content .elementor-button:hover,
+.bh-article-content .elementor-button:focus,
+.bh-article-content .elementor-button .elementor-button-text,
+.bh-article-content .elementor-button .elementor-button-icon {
+	color: var(--text-heading);
+	fill: var(--text-heading);
+	text-decoration: none;
+}
+

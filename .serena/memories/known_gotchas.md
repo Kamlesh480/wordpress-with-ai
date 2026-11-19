@@ -126,4 +126,7 @@ Post URLs look like `/blogs/<slug>/` (Yoast Primary category in the permalink). 
 - Old production posts contain Elementor blocks with fixed px widths, pasted computed inline styles and Word tables: article.css has ≤767px guards for all of these. Re-run the 36-post phone sweep after article CSS changes.
 - WP Rocket combines CSS on production: theme asset URLs don't appear in cached HTML; detect the theme via body class `wp-theme-blog-hub`. Bypass cache with any query string. Clear cache: admin-bar link with `purge_cache&type=all`.
 - (v2, 19 Nov 2026) The Areas We Serve section (page `areas-we-serve`, its child pages, location posts, area categories) is now ALSO served with Blog Hub on production (plugin 1.1.0). Areas dropdown/footer come from the real child pages; never hardcode city slugs (non-existent /areas-we-serve/<city>/ gets redirected by WordPress to a same-named image). Neve's `page-templates/template-pagebuilder-full-width.php` path exists in Blog Hub too, for Elementor state pages.
+- (19 Nov 2026) Elementor CSS built under Blog Hub drops rules that use Neve global colours unless the theme answers `/elementor/v1/globals/colors/nv*` (blog_hub_elementor_neve_global_color). After changing it: Elementor → Tools → Clear Files & Data.
+- Elementor's frontend CSS has `.elementor a{text-decoration:none}` and its FA5 file redefines `.fa-x-twitter` — theme rules must out-rank them (article link selector uses :not() chain; X glyph pinned).
+- We never edit post content; content-team rules live in CONTENT_GUIDELINES.md.
 

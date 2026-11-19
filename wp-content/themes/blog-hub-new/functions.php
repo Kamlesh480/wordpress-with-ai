@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'BLOG_HUB_VERSION', '1.0.25' );
+define( 'BLOG_HUB_VERSION', '1.0.28' );
 
 require_once get_template_directory() . '/inc/main-site.php';
 require_once get_template_directory() . '/inc/site-header-footer.php';
@@ -408,6 +408,8 @@ function blog_hub_related_posts( $post_id, $count = 3 ) {
 	return get_posts(
 		array(
 			'category__in'        => array( $primary_cat->term_id ),
+			// Blog posts never list Areas We Serve location posts as related.
+			'category__not_in'    => blog_hub_is_area_post( $post_id ) ? array() : blog_hub_area_category_ids(),
 			'post__not_in'        => array( $post_id ),
 			'posts_per_page'      => $count,
 			'orderby'             => 'date',
@@ -778,6 +780,12 @@ function blog_hub_output_schema() {
 	if ( is_admin() || is_search() || is_404() ) {
 		return;
 	}
+	// Yoast SEO already outputs Article, BreadcrumbList, Organization,
+	// WebSite and Person. Printing ours as well gave every post a second
+	// article item (BlogPosting) and a second breadcrumb list.
+	if ( defined( 'WPSEO_VERSION' ) ) {
+		return;
+	}
 	$graph = blog_hub_schema_graph();
 	if ( empty( $graph ) ) {
 		return;
@@ -1098,7 +1106,18 @@ function blog_hub_customize_register( $wp_customize ) {
 		'blog_hub_footer_about',
 		array(
 			'label'       => __( 'Footer description', 'blog-hub' ),
-			'description' => __( 'Short line under the footer logo, e.g. "Precast concrete maker in Faridabad, Haryana. Since 2010." The site tagline (Site Identity) is shown below it in gold.', 'blog-hub' ),
+			'description' => __( 'Short line under the footer logo, e.g. "Precast concrete maker in Faridabad, Haryana. Since 2010." The Footer tagline below is shown under it in gold.', 'blog-hub' ),
+			'section'     => 'blog_hub_contact',
+			'type'        => 'text',
+		)
+	);
+
+	$wp_customize->add_setting( 'blog_hub_footer_tagline', array( 'default' => '', 'sanitize_callback' => 'sanitize_text_field' ) );
+	$wp_customize->add_control(
+		'blog_hub_footer_tagline',
+		array(
+			'label'       => __( 'Footer tagline', 'blog-hub' ),
+			'description' => __( 'Gold line under the footer description, e.g. "Building Trust, Creating Products". Separate from the WordPress Tagline (Site Identity), which the rest of the site also uses. Leave blank to hide.', 'blog-hub' ),
 			'section'     => 'blog_hub_contact',
 			'type'        => 'text',
 		)
@@ -1293,3 +1312,123 @@ function blog_hub_elementor_neve_global_color( $response, $handler, $request ) {
 	);
 }
 add_filter( 'rest_request_after_callbacks', 'blog_hub_elementor_neve_global_color', 999, 3 );
+
+/* ---------------------------------------------------------------------------
+ * Areas We Serve location posts (posts filed only under the "Areas we Serve"
+ * category tree, e.g. "Hume Pipes in Delhi"). They are posts, but belong to
+ * the Areas We Serve section, not to the blog.
+ * ------------------------------------------------------------------------- */
+
+/** IDs of the "areas-we-serve" category and all its descendants (cached). */
+function blog_hub_area_category_ids() {
+	static $ids = null;
+	if ( null !== $ids ) {
+		return $ids;
+	}
+	$ids  = array();
+	$root = get_category_by_slug( 'areas-we-serve' );
+	if ( $root ) {
+		$ids = array_merge( array( (int) $root->term_id ), array_map( 'intval', get_term_children( $root->term_id, 'category' ) ) );
+	}
+	return $ids;
+}
+
+/** True when every category of the post is in the Areas We Serve tree. */
+function blog_hub_is_area_post( $post_id = 0 ) {
+	$area_ids = blog_hub_area_category_ids();
+	if ( ! $area_ids ) {
+		return false;
+	}
+	$cat_ids = wp_get_post_categories( $post_id ? $post_id : get_the_ID() );
+	return $cat_ids && ! array_diff( array_map( 'intval', $cat_ids ), $area_ids );
+}
+
+/**
+ * The Areas We Serve page and, for an area category (e.g. "Delhi"), the
+ * matching state page under it (/areas-we-serve/delhi/), as [ label, url ].
+ */
+function blog_hub_area_trail( $cat = null ) {
+	$trail = array();
+	$root  = get_page_by_path( 'areas-we-serve' );
+	if ( $root && 'publish' === $root->post_status ) {
+		$trail[] = array( get_the_title( $root ), get_permalink( $root ) );
+	}
+	if ( $cat && 'areas-we-serve' !== $cat->slug ) {
+		$state = $root ? get_page_by_path( 'areas-we-serve/' . $cat->slug ) : null;
+		$label = strtolower( $cat->name ) === $cat->name ? ucwords( $cat->name ) : $cat->name;
+		$trail[] = array( $label, ( $state && 'publish' === $state->post_status ) ? get_permalink( $state ) : get_category_link( $cat ) );
+	}
+	return $trail;
+}
+
+/** Deepest Areas We Serve category of a location post. */
+function blog_hub_area_post_category( $post_id ) {
+	$best = null;
+	foreach ( get_the_category( $post_id ) as $cat ) {
+		if ( ! $best || count( get_ancestors( $cat->term_id, 'category' ) ) > count( get_ancestors( $best->term_id, 'category' ) ) ) {
+			$best = $cat;
+		}
+	}
+	return $best;
+}
+
+/**
+ * Yoast breadcrumb (and its BreadcrumbList schema) for location posts and
+ * area category pages: Home > Areas We Serve > State > Page, not "Blog".
+ */
+function blog_hub_yoast_area_breadcrumbs( $links ) {
+	if ( is_singular( 'post' ) && blog_hub_is_area_post( get_queried_object_id() ) ) {
+		$cat = blog_hub_area_post_category( get_queried_object_id() );
+	} elseif ( is_category() && in_array( (int) get_queried_object_id(), blog_hub_area_category_ids(), true ) ) {
+		$cat = get_queried_object();
+	} else {
+		return $links;
+	}
+	$out = array( $links[0] ); // Home.
+	foreach ( blog_hub_area_trail( $cat ) as $item ) {
+		$out[] = array( 'text' => $item[0], 'url' => $item[1] );
+	}
+	if ( is_singular( 'post' ) ) {
+		$out[] = array( 'text' => get_the_title(), 'url' => get_permalink(), 'id' => get_queried_object_id() );
+	}
+	return $out;
+}
+add_filter( 'wpseo_breadcrumb_links', 'blog_hub_yoast_area_breadcrumbs' );
+
+/** Add the business phone number to Yoast's Organization schema. */
+function blog_hub_yoast_organization_phone( $data ) {
+	$phone = get_theme_mod( 'blog_hub_contact_phone', '' );
+	if ( $phone && empty( $data['telephone'] ) ) {
+		$data['telephone'] = $phone;
+	}
+	return $data;
+}
+add_filter( 'wpseo_schema_organization', 'blog_hub_yoast_organization_phone' );
+
+/**
+ * The author's pull quote (Users > Profile > "Pull quote") as the design's
+ * quote card: placed just before the FAQ block when the post has one,
+ * otherwise at the end of the article text. Nothing is shown when the
+ * author has no quote.
+ */
+function blog_hub_author_quote_card( $author_id ) {
+	$quote = blog_hub_author_quote( $author_id );
+	if ( ! $quote ) {
+		return '';
+	}
+	$name  = get_the_author_meta( 'display_name', $author_id );
+	$title = blog_hub_author_title( $author_id );
+	$cite  = $title ? $name . ', ' . $title : $name;
+	return '<blockquote class="bh-quote-card"><i class="fa-solid fa-quote-left" aria-hidden="true"></i><p>' . esc_html( $quote ) . '</p><cite>&mdash; ' . esc_html( $cite ) . '</cite></blockquote>';
+}
+
+function blog_hub_insert_quote_card( $html, $card ) {
+	if ( ! $card ) {
+		return $html;
+	}
+	if ( preg_match( '/<(div|section)[^>]*class="[^"]*\bbh-faqs\b[^"]*"/', $html, $m, PREG_OFFSET_CAPTURE ) ) {
+		return substr( $html, 0, $m[0][1] ) . $card . substr( $html, $m[0][1] );
+	}
+	return $html . $card;
+}
+

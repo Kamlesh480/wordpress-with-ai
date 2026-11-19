@@ -214,7 +214,23 @@ function blog_hub_find_page_url( $template_slug ) {
 			'fields'         => 'ids',
 		)
 	);
-	$url                     = ! empty( $pages ) ? get_permalink( $pages[0] ) : home_url( '/' );
+	$url = ! empty( $pages ) ? get_permalink( $pages[0] ) : '';
+	if ( ! $url ) {
+		// The live site's About / Contact pages are Elementor pages without
+		// this theme's templates: fall back to the usual page addresses.
+		$slugs = array(
+			'template-about.php'   => array( 'about', 'about-us' ),
+			'template-contact.php' => array( 'contact', 'contact-us' ),
+		);
+		foreach ( isset( $slugs[ $template_slug ] ) ? $slugs[ $template_slug ] : array() as $slug ) {
+			$page = get_page_by_path( $slug );
+			if ( $page && 'publish' === $page->post_status ) {
+				$url = get_permalink( $page );
+				break;
+			}
+		}
+	}
+	$url                     = $url ? $url : home_url( '/' );
 	$cache[ $template_slug ] = $url;
 	return $url;
 }
@@ -308,10 +324,11 @@ function blog_hub_render_header_dropdown( $key ) {
 		case 'blog':
 			$recent = get_posts(
 				array(
-					'posts_per_page' => 4,
-					'post_status'    => 'publish',
-					'orderby'        => 'date',
-					'order'          => 'DESC',
+					'posts_per_page'   => 4,
+					'post_status'      => 'publish',
+					'orderby'          => 'date',
+					'order'            => 'DESC',
+					'category__not_in' => blog_hub_area_category_ids(), // blogs only, no area posts
 				)
 			);
 			if ( empty( $recent ) ) {
@@ -319,7 +336,7 @@ function blog_hub_render_header_dropdown( $key ) {
 			}
 			?>
 			<div class="bh-dropdown bh-dropdown--blog" id="bh-dd-blog" data-bh-dropdown>
-				<span class="bh-dropdown__label"><?php esc_html_e( 'Recent Posts', 'blog-hub' ); ?></span>
+				<span class="bh-dropdown__label"><?php esc_html_e( 'Top Blogs', 'blog-hub' ); ?></span>
 				<ul>
 					<?php foreach ( $recent as $post ) : ?>
 						<li>
@@ -384,11 +401,12 @@ function blog_hub_render_mobile_header_dropdown( $key ) {
 		case 'blog':
 			$recent = get_posts(
 				array(
-					'posts_per_page' => 4,
-					'post_status'    => 'publish',
-					'orderby'        => 'date',
-					'order'          => 'DESC',
-					'fields'         => 'ids',
+					'posts_per_page'   => 4,
+					'post_status'      => 'publish',
+					'orderby'          => 'date',
+					'order'            => 'DESC',
+					'fields'           => 'ids',
+					'category__not_in' => blog_hub_area_category_ids(), // blogs only, no area posts
 				)
 			);
 			?>

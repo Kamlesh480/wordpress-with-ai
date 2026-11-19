@@ -61,8 +61,13 @@ if ( ! is_singular( 'post' ) ) :
 				<?php if ( $bh_footer_about ) : ?>
 					<p class="bh-footer__about"><?php echo esc_html( $bh_footer_about ); ?></p>
 				<?php endif; ?>
-				<?php if ( get_bloginfo( 'description' ) ) : ?>
-					<p class="bh-footer__tagline"><?php bloginfo( 'description' ); ?></p>
+				<?php
+				// Own setting, not the shared WordPress Tagline (that one is used
+				// by the rest of the site and says "Leading ...").
+				$bh_footer_tagline = get_theme_mod( 'blog_hub_footer_tagline', '' );
+				if ( $bh_footer_tagline ) :
+					?>
+					<p class="bh-footer__tagline"><?php echo esc_html( $bh_footer_tagline ); ?></p>
 				<?php endif; ?>
 				<?php if ( has_nav_menu( 'social' ) ) : ?>
 					<?php
@@ -177,10 +182,30 @@ if ( ! is_singular( 'post' ) ) :
 	<div class="bh-footer__bottom">
 		<div class="bh-container bh-footer__bottom-inner">
 			<p class="bh-footer__copy">&copy; <?php echo esc_html( gmdate( 'Y' ) ); ?> <?php bloginfo( 'name' ); ?>. <?php esc_html_e( 'All rights reserved.', 'blog-hub' ); ?></p>
-			<ul class="bh-footer__legal">
-				<li><a href="#privacy-policy"><?php esc_html_e( 'Privacy Policy', 'blog-hub' ); ?></a></li>
-				<li><a href="#terms"><?php esc_html_e( 'Terms', 'blog-hub' ); ?></a></li>
-			</ul>
+			<?php
+			// Real pages only: Settings > Privacy page, and a published page at
+			// /terms/, /terms-and-conditions/ or /terms-of-use/. A link is hidden
+			// until its page exists (they used to point at "#").
+			$bh_legal   = array();
+			$bh_privacy = get_privacy_policy_url();
+			if ( $bh_privacy ) {
+				$bh_legal[] = array( $bh_privacy, __( 'Privacy Policy', 'blog-hub' ) );
+			}
+			foreach ( array( 'terms', 'terms-and-conditions', 'terms-of-use' ) as $bh_terms_slug ) {
+				$bh_terms = get_page_by_path( $bh_terms_slug );
+				if ( $bh_terms && 'publish' === $bh_terms->post_status ) {
+					$bh_legal[] = array( get_permalink( $bh_terms ), __( 'Terms', 'blog-hub' ) );
+					break;
+				}
+			}
+			?>
+			<?php if ( $bh_legal ) : ?>
+				<ul class="bh-footer__legal">
+					<?php foreach ( $bh_legal as $bh_link ) : ?>
+						<li><a href="<?php echo esc_url( $bh_link[0] ); ?>"><?php echo esc_html( $bh_link[1] ); ?></a></li>
+					<?php endforeach; ?>
+				</ul>
+			<?php endif; ?>
 			<button type="button" class="bh-footer__totop" aria-label="<?php esc_attr_e( 'Back to top', 'blog-hub' ); ?>" data-bh-to-top>
 				<i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
 			</button>

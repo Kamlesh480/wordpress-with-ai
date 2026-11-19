@@ -24,7 +24,7 @@ with real values pulled from the live site (shubhsanskarconcrete.com) on 22–23
 before going live, don't just paste something in to clear the checkbox.
 
 **Latest update (15 Nov 2026):** the "SSC - Staging vs Design" feedback round. The code fixes
-ship in theme version **1.0.23** (1.0.2 added the full logo image; 1.0.3 fixed which category labels a post; 1.0.4 fixed the Map embed box being impossible to type in; 1.0.5 limited category lists to topic categories; 1.0.6 ignores a Yoast Primary of Blogs/location; 1.0.7 newsletter section works with a WPForms form; 1.0.8 sticky header for old tables without a header row; 1.0.9/1.0.10/1.0.11 "changes log 16/11/26" round, see section 15; 1.0.12/1.0.13 Blog Page TL;DR width + sticky table header on phones, see section 16; 1.0.14 shorter breadcrumb + mobile Table of Contents, see section 17; 1.0.15–1.0.22 production go-live fixes, see section 18; 1.0.23 Areas We Serve on Blog Hub, see section 19); everything that still needs doing in wp-admin is collected
+ship in theme version **1.0.28** (1.0.2 added the full logo image; 1.0.3 fixed which category labels a post; 1.0.4 fixed the Map embed box being impossible to type in; 1.0.5 limited category lists to topic categories; 1.0.6 ignores a Yoast Primary of Blogs/location; 1.0.7 newsletter section works with a WPForms form; 1.0.8 sticky header for old tables without a header row; 1.0.9/1.0.10/1.0.11 "changes log 16/11/26" round, see section 15; 1.0.12/1.0.13 Blog Page TL;DR width + sticky table header on phones, see section 16; 1.0.14 shorter breadcrumb + mobile Table of Contents, see section 17; 1.0.15–1.0.22 production go-live fixes, see section 18; 1.0.23 Areas We Serve on Blog Hub, see section 19; 1.0.24–1.0.28 Areas hero gradient + Prod Feedback round, see section 20); everything that still needs doing in wp-admin is collected
 in **section 14** at the bottom of this file — start there if you're picking this up fresh.
 
 ---
@@ -1120,4 +1120,35 @@ kept the 7 location posts on Neve). Code only, nothing to set in wp-admin. Live 
 **QA:** all 18 Areas URLs (page, 9 states, 7 posts, area category) on phone + desktop: Blog Hub, 200, one H1, no
 sideways scroll, no YARPP / plugin buttons. 36 blog posts re-checked. Home, About, Products + product pages identical
 to the morning snapshot. Doc: "Prod Deploymemt" tab, section "VERSION 2".
+
+## 20. Areas hero gradient (v1.0.24/25) and "Prod Feedback" round (v1.0.26–1.0.28), 19 Nov 2026
+Full item-by-item answer with screenshots: Google Doc, tab **"Prod Feedback Fixes"**. Content-team work is
+described in **`CONTENT_GUIDELINES.md`** (repo root): we do code + site settings only, never post content.
+
+**Code (theme):**
+- v1.0.24/25: Neve palette as Elementor globals: `--e-global-color-nv*` vars in tokens.css **and**
+  `blog_hub_elementor_neve_global_color()` answering `/elementor/v1/globals/colors/nv*` (without it Elementor
+  drops global-colour rules when it builds page CSS under Blog Hub, e.g. the Areas hero gradient). After
+  deploying: Elementor → Tools → **Clear Files & Data**, then clear WP Rocket.
+- v1.0.26–28: article links `--link-strong` #7a5f22 + underline, navy hover (selector raised above Elementor's
+  `.elementor a{text-decoration:none}`); TOC hover/active; black label on gold CTA buttons and on Elementor
+  buttons inside articles; X icon pinned to `\e61b` (Elementor FA5 overrides it); share links → x.com;
+  About/Contact fall back to `/about/`, `/contact/`; Blog dropdown "Top Blogs" without area posts; Privacy/Terms
+  shown only if those pages exist; footer tagline = own setting `blog_hub_footer_tagline`; area posts excluded
+  from /blog/, Blog menu, related; area breadcrumb Home / Areas We Serve / State (+ Yoast `wpseo_breadcrumb_links`);
+  theme schema off when Yoast is active; phone added via `wpseo_schema_organization`; author **Pull quote** card
+  before the FAQ (`blog_hub_insert_quote_card()`), blockquotes styled the same.
+
+**WordPress (production):** Customizer (via Blog Theme Switch edit mode): `blog_hub_inline_cta_button_url` and
+`blog_hub_end_cta_button_url` `/contact-us/` → `/contact/`; `blog_hub_footer_tagline` = "Building Trust, Creating
+Products". Social Links menu item 8041 → `https://x.com/sscconcrete`. Category 293 "haryana" → "Haryana" (slug kept).
+
+**Kept as agreed:** home/product/About/Contact stay on Neve (feedback "new header everywhere" = separate project).
+
+**Content team (not done by us):** FAQs (hsn-code-of-cement, 3 plain-text FAQs, all-about-rcc-pipes schema), old
+contact block in 31 posts (old phones, twitter.com/shubhsanskarc), URL link text (3 posts), H2 headings (8 posts),
+alt text, RCC Drainage Pipes excerpt, Yoast keyphrases (12 posts), author bio claim, author Pull quote, Privacy and
+Terms pages.
+
+**QA:** 36 blog posts (phone) and 18 Areas URLs (phone + desktop) pass; old-theme pages unchanged.
 
