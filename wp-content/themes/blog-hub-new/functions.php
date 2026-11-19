@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'BLOG_HUB_VERSION', '1.0.14' );
+define( 'BLOG_HUB_VERSION', '1.0.25' );
 
 require_once get_template_directory() . '/inc/main-site.php';
 require_once get_template_directory() . '/inc/site-header-footer.php';
@@ -1227,3 +1227,69 @@ function blog_hub_sanitize_form_shortcode( $input ) {
 	}
 	return '';
 }
+
+/**
+ * YARPP (Yet Another Related Posts Plugin) appends its own "Related Posts"
+ * thumbnail strip to every post's content. The live site keeps YARPP active
+ * for the pages that still use the old theme, so turn off only its automatic
+ * strip here: on Blog Hub pages the theme's "Related Articles" section
+ * replaces it (and the design has no second related-posts strip).
+ */
+function blog_hub_disable_yarpp_auto_display() {
+	global $yarpp;
+	if ( is_object( $yarpp ) ) {
+		remove_filter( 'the_content', array( $yarpp, 'the_content' ), 1200 );
+		remove_filter( 'the_excerpt_rss', array( $yarpp, 'the_excerpt_rss' ), 600 );
+		remove_filter( 'the_content_feed', array( $yarpp, 'the_content_feed' ), 600 );
+	}
+}
+add_action( 'wp', 'blog_hub_disable_yarpp_auto_display' );
+
+/**
+ * Neve's palette as Elementor global colours (answers Elementor's lookups).
+ *
+ * Pages built in Elementor while the site ran Neve store some colours as
+ * global references ("globals/colors?id=nvdarkbg"). When Elementor builds a
+ * page's CSS it resolves each reference through the REST route
+ * /elementor/v1/globals/colors/<id>; Neve answers those for its palette, but
+ * on pages served with Blog Hub nothing did, so Elementor dropped the rule
+ * (e.g. the navy gradient over the Areas We Serve hero images). Answer the
+ * same lookups with the same values as Neve (see tokens.css for the matching
+ * CSS variables). Only kicks in when the route asks for one of these ids.
+ */
+function blog_hub_neve_palette_for_elementor() {
+	return array(
+		'nvprimaryaccent'   => array( 'nv-primary-accent', '#c9b379' ),
+		'nvsecondaryaccent' => array( 'nv-secondary-accent', '#5047ae' ),
+		'nvsitebg'          => array( 'nv-site-bg', '#ffffff' ),
+		'nvlightbg'         => array( 'nv-light-bg', '#f1f0e9' ),
+		'nvdarkbg'          => array( 'nv-dark-bg', '#1f1c44' ),
+		'nvtextcolor'       => array( 'nv-text-color', '#211f1d' ),
+		'nvtextdarkbg'      => array( 'nv-text-dark-bg', '#ffffff' ),
+		'nvc1'              => array( 'nv-c-1', 'rgba(31,28,69,0.6)' ),
+		'nvc2'              => array( 'nv-c-2', '#f37262' ),
+	);
+}
+
+function blog_hub_elementor_neve_global_color( $response, $handler, $request ) {
+	if ( ! $request instanceof WP_REST_Request ) {
+		return $response;
+	}
+	$route = $request->get_route();
+	if ( 0 !== strpos( $route, '/elementor/v1/globals/colors/' ) ) {
+		return $response;
+	}
+	$id      = substr( $route, strrpos( $route, '/' ) + 1 );
+	$palette = blog_hub_neve_palette_for_elementor();
+	if ( ! isset( $palette[ $id ] ) ) {
+		return $response;
+	}
+	return new WP_REST_Response(
+		array(
+			'id'    => $id,
+			'title' => 'Neve - ' . $palette[ $id ][0],
+			'value' => $palette[ $id ][1],
+		)
+	);
+}
+add_filter( 'rest_request_after_callbacks', 'blog_hub_elementor_neve_global_color', 999, 3 );

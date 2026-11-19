@@ -1672,6 +1672,17 @@ body.admin-bar .bh-header { top: 32px; }
    (also over the footer, as in the design). They sit in the 24-80px strip
    at each screen edge; the footer padding rule below keeps footer text out
    of that strip on narrower screens so the buttons never cover it. */
+/* The live site runs Blog Hub only on the blog (see the SSC Blog Theme
+   Switch plugin); the rest of the site uses the "Call Now Button" and
+   "Social Chat" plugins for its floating buttons. On Blog Hub pages the
+   theme's own Call/WhatsApp buttons replace them, so hide the plugin
+   versions instead of stacking two sets in each corner. */
+.cnb-single.call-now-button,
+.call-now-button.cnb-fixed,
+.qlwapp,
+.qlwapp__container,
+#qlwapp { display: none !important; }
+
 .bh-floating-actions { display: contents; }
 
 .bh-floating-actions__btn {

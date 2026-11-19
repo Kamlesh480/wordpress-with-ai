@@ -86,8 +86,50 @@ function blog_hub_product_subpages( $slug ) {
 /**
  * Cities for the header's "Areas We Serve" dropdown and footer list.
  */
+/**
+ * Areas We Serve links for the header dropdown, mobile menu and footer: the
+ * published child pages of the "areas-we-serve" page (Delhi, Haryana, ...),
+ * as [ label, url ]. Built from real pages so every link exists (a fixed city
+ * list linked to /areas-we-serve/noida/ etc., which don't exist as pages, and
+ * WordPress redirected those to similarly named images).
+ */
 function blog_hub_header_areas() {
-	return array( 'Faridabad', 'Delhi', 'Gurgaon', 'Noida', 'Ghaziabad' );
+	$areas = array();
+	foreach ( blog_hub_product_subpages( 'areas-we-serve' ) as $area ) {
+		$label = $area['label'];
+		if ( strtolower( $label ) === $label ) {
+			$label = ucwords( $label ); // e.g. a page titled "haryana".
+		}
+		$areas[] = array( 'label' => $label, 'url' => $area['url'] );
+	}
+	return $areas;
+}
+
+/** True on the Areas We Serve page, its sub-pages, and posts / categories in the "areas-we-serve" category tree. */
+function blog_hub_is_areas_context() {
+	$root = get_page_by_path( 'areas-we-serve' );
+	if ( $root && is_page() ) {
+		$id = get_queried_object_id();
+		return $id === $root->ID || in_array( $root->ID, get_post_ancestors( $id ), true );
+	}
+	$area_cat = get_category_by_slug( 'areas-we-serve' );
+	if ( ! $area_cat ) {
+		return false;
+	}
+	if ( is_category() ) {
+		$cat = get_queried_object();
+		return $cat->term_id === $area_cat->term_id || cat_is_ancestor_of( $area_cat, $cat );
+	}
+	if ( is_singular( 'post' ) ) {
+		$cats = get_the_category( get_queried_object_id() );
+		foreach ( $cats as $cat ) {
+			if ( $cat->term_id !== $area_cat->term_id && ! cat_is_ancestor_of( $area_cat, $cat ) ) {
+				return false;
+			}
+		}
+		return (bool) $cats;
+	}
+	return false;
 }
 
 function blog_hub_header_area_url( $city ) {
@@ -142,6 +184,9 @@ function blog_hub_current_nav_key() {
 	}
 	if ( is_page_template( 'page-templates/template-contact.php' ) ) {
 		return 'contact';
+	}
+	if ( blog_hub_is_areas_context() ) {
+		return 'areas';
 	}
 	if ( is_home() || is_singular( 'post' ) || is_category() || is_author() || is_archive() ) {
 		return 'blog';
@@ -248,8 +293,8 @@ function blog_hub_render_header_dropdown( $key ) {
 			?>
 			<div class="bh-dropdown bh-dropdown--areas" id="bh-dd-areas" data-bh-dropdown>
 				<ul>
-					<?php foreach ( blog_hub_header_areas() as $city ) : ?>
-						<li><a href="<?php echo esc_url( blog_hub_header_area_url( $city ) ); ?>"><?php echo esc_html( $city ); ?></a></li>
+					<?php foreach ( blog_hub_header_areas() as $area ) : ?>
+						<li><a href="<?php echo esc_url( $area['url'] ); ?>"><?php echo esc_html( $area['label'] ); ?></a></li>
 					<?php endforeach; ?>
 				</ul>
 				<a class="bh-dropdown__all" href="<?php echo esc_url( blog_hub_header_areas_url() ); ?>">
@@ -328,8 +373,8 @@ function blog_hub_render_mobile_header_dropdown( $key ) {
 		case 'areas':
 			?>
 			<ul class="bh-mobile-menu__sublist" id="bh-m-dd-areas" hidden>
-				<?php foreach ( blog_hub_header_areas() as $city ) : ?>
-					<li><a href="<?php echo esc_url( blog_hub_header_area_url( $city ) ); ?>"><?php echo esc_html( $city ); ?></a></li>
+				<?php foreach ( blog_hub_header_areas() as $area ) : ?>
+					<li><a href="<?php echo esc_url( $area['url'] ); ?>"><?php echo esc_html( $area['label'] ); ?></a></li>
 				<?php endforeach; ?>
 				<li><a class="bh-mobile-menu__sublist-all" href="<?php echo esc_url( blog_hub_header_areas_url() ); ?>"><?php esc_html_e( 'All Areas We Serve', 'blog-hub' ); ?></a></li>
 			</ul>

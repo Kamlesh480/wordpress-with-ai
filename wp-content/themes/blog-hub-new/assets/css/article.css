@@ -194,22 +194,27 @@ body.admin-bar .bh-article-content h2 { scroll-margin-top: 120px; }
 	margin: 0;
 	padding: 0;
 	display: grid;
+	grid-template-columns: minmax(0, 1fr); /* never wider than the article */
 	gap: var(--space-4);
 }
 
+/* Normal text flow (not flex) so a bullet that mixes plain text, bold words
+   and links wraps like a sentence instead of splitting into columns that
+   push the page wider than a phone screen. The gold dot sits in the padding. */
 .bh-article-content ul li {
-	display: flex;
-	gap: var(--space-3);
+	position: relative;
+	padding-left: calc(6px + var(--space-3));
 }
 
 .bh-article-content ul li::before {
 	content: '';
-	flex-shrink: 0;
+	position: absolute;
+	left: 0;
+	top: 11px;
 	width: 6px;
 	height: 6px;
 	border-radius: 50%;
 	background: var(--gold-500);
-	margin-top: 11px;
 }
 
 .bh-article-content table {
@@ -830,4 +835,51 @@ body.admin-bar .bh-article-content table:not(:has(thead)) > tbody > tr:first-chi
 @media (max-width: 600px) {
 	.bh-article-header__title { font-size: 32px; }
 	.bh-article-hero { height: 220px; }
+}
+
+/* Fallback if YARPP's strip is still printed (see blog_hub_disable_yarpp_auto_display()). */
+.bh-article-content .yarpp-related { display: none !important; }
+
+/* Long bare URLs typed into old posts (e.g. social profile links) can't wrap
+   and pushed phones into sideways scrolling; let links break when needed. */
+.bh-article-content a { overflow-wrap: anywhere; }
+
+/* Old posts contain long unbroken strings (pasted text, codes, URLs): let
+   article text break them when a line would otherwise overflow. */
+.bh-article-content { overflow-wrap: break-word; }
+
+/* Some old posts embed Elementor sections whose columns / widgets have a
+   fixed pixel width and no phone override (e.g. the "For More Info Please
+   contact us on" block, 769px); on phones they take the full column width
+   (what Elementor's own mobile layout does). */
+@media (max-width: 767px) {
+	.bh-article-content .elementor-column,
+	.bh-article-content .elementor-widget-wrap,
+	.bh-article-content .elementor-widget,
+	.bh-article-content .e-con {
+		width: 100% !important;
+		max-width: 100% !important;
+		min-width: 0 !important;
+		flex-basis: 100% !important;
+	}
+
+	/* Blocks pasted with another page's computed styles baked in as inline
+	   style="" (fixed pixel widths): never wider than the article column. */
+	.bh-article-content :is(div, section, p, figure, span)[style] {
+		max-width: 100% !important;
+		min-width: 0 !important;
+		box-sizing: border-box !important;
+	}
+
+	/* Tables pasted from Word carry fixed inline widths and &nbsp; padding:
+	   spread them over the column and let cells wrap anywhere if needed. */
+	.bh-article-content table[style] {
+		width: 100% !important;
+		table-layout: fixed;
+	}
+
+	.bh-article-content table[style] :is(td, th) {
+		width: auto !important;
+		overflow-wrap: anywhere;
+	}
 }

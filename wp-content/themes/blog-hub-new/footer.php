@@ -100,8 +100,8 @@ if ( ! is_singular( 'post' ) ) :
 				</ul>
 				<h3 class="bh-footer__heading bh-footer__heading--sub"><?php esc_html_e( 'Areas We Serve', 'blog-hub' ); ?></h3>
 				<ul class="bh-footer__areas">
-					<?php foreach ( blog_hub_header_areas() as $city ) : ?>
-						<li><a href="<?php echo esc_url( blog_hub_header_area_url( $city ) ); ?>"><?php echo esc_html( $city ); ?></a></li>
+					<?php foreach ( blog_hub_header_areas() as $area ) : ?>
+						<li><a href="<?php echo esc_url( $area['url'] ); ?>"><?php echo esc_html( $area['label'] ); ?></a></li>
 					<?php endforeach; ?>
 				</ul>
 			</nav>

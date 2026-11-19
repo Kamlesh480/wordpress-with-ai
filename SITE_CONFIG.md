@@ -24,7 +24,7 @@ with real values pulled from the live site (shubhsanskarconcrete.com) on 22–23
 before going live, don't just paste something in to clear the checkbox.
 
 **Latest update (15 Nov 2026):** the "SSC - Staging vs Design" feedback round. The code fixes
-ship in theme version **1.0.14** (1.0.2 added the full logo image; 1.0.3 fixed which category labels a post; 1.0.4 fixed the Map embed box being impossible to type in; 1.0.5 limited category lists to topic categories; 1.0.6 ignores a Yoast Primary of Blogs/location; 1.0.7 newsletter section works with a WPForms form; 1.0.8 sticky header for old tables without a header row; 1.0.9/1.0.10/1.0.11 "changes log 16/11/26" round, see section 15; 1.0.12/1.0.13 Blog Page TL;DR width + sticky table header on phones, see section 16; 1.0.14 shorter breadcrumb + mobile Table of Contents, see section 17); everything that still needs doing in wp-admin is collected
+ship in theme version **1.0.23** (1.0.2 added the full logo image; 1.0.3 fixed which category labels a post; 1.0.4 fixed the Map embed box being impossible to type in; 1.0.5 limited category lists to topic categories; 1.0.6 ignores a Yoast Primary of Blogs/location; 1.0.7 newsletter section works with a WPForms form; 1.0.8 sticky header for old tables without a header row; 1.0.9/1.0.10/1.0.11 "changes log 16/11/26" round, see section 15; 1.0.12/1.0.13 Blog Page TL;DR width + sticky table header on phones, see section 16; 1.0.14 shorter breadcrumb + mobile Table of Contents, see section 17; 1.0.15–1.0.22 production go-live fixes, see section 18; 1.0.23 Areas We Serve on Blog Hub, see section 19); everything that still needs doing in wp-admin is collected
 in **section 14** at the bottom of this file — start there if you're picking this up fresh.
 
 ---
@@ -1047,4 +1047,77 @@ Code only, nothing to set in wp-admin.
 | (found while testing) | Jumping to a section from the TOC no longer hides the heading under the fixed header. |
 
 **Production:** just upload v1.0.14.
+
+## 18. Production go-live: blog only (19 Nov 2026)
+
+**Goal:** only the blog uses Blog Hub. Home, product pages, About, Contact, Areas We Serve (pages *and* their 7
+location posts) stay exactly as they were: Neve + Elementor, old header/footer. Different header/footer between
+the blog and the rest of the site is expected and accepted.
+
+**How:** the active theme stays **Neve**. The plugin **SSC Blog Theme Switch** (source in
+`wp-content/plugins/ssc-blog-theme-switch/`, uploaded as `ssc-blog-theme-switch.zip`) serves Blog Hub only for:
+`/blog/` (+ `/blog/page/N/`), blog posts, category pages, tag pages, author pages. It never writes the active
+theme; it also blocks Blog Hub from being activated site-wide while it is active.
+Settings: **Tools → Blog Theme Switch** ("Edit Blog Hub settings" = Customizer for Blog Hub, only you see it;
+"Go live" / "Turn off"). **Rollback: Tools → Blog Theme Switch → Turn off** (or deactivate the plugin).
+
+**Do not** (while the plugin is active):
+- Appearance → Themes → Activate Blog Hub (blocked anyway; would replace the home page and every header/footer).
+- Appearance → Widgets while in "Edit Blog Hub settings" mode (could move Neve's widgets).
+- Change Site Title / Tagline / Site Icon for the blog: they are shared with the Neve pages.
+- Edit "Main-menu": it is the header menu of BOTH the old site and the blog.
+
+### Done on production (19 Nov 2026)
+| Step | What |
+|---|---|
+| Backup | UpdraftPlus full backup "Before Blog Hub blog switch 19-Nov-2026" (database, plugins, themes, uploads, others), kept until deleted manually. Stored on the server only (no remote storage configured). |
+| HTML snapshot | `backups/production-2026-11-19/` (local, gitignored): HTML of home + 28 pages, 43 posts, /blog/, 4 category pages, REST lists. |
+| Theme | Blog Hub uploaded (replaced an old inactive Blog Hub v1.0.0 already on the server), now **v1.0.22**. **Not activated.** |
+| Plugin | SSC Blog Theme Switch uploaded + activated, now **1.0.1** (1.0.1 adds logo isolation, below). Status: **LIVE**. |
+| Newsletter | WPForms "Newsletter signup" imported → **form ID 8030** (notifications to shubhsanskarconcrete@gmail.com). |
+| Media | CTA delivery photo uploaded → media **8032** (`2026/11/ssc-delivery-cta.webp`). Logo = existing media **7089** (`2024/11/25.png`, 1920×367). |
+| Menus | New menus **footer-menu** (297: Home, Blog, Products, About Us, Contact) and **Social Links** (298: Facebook, Instagram, LinkedIn, X). Not assigned to any Neve location. |
+| Blog Hub settings | Copied from staging (contact details, map, WhatsApp, blog hero, newsletter `[wpforms id="8030" title="false"]`, links line, inline + end CTA, footer text, hours). Menu locations: primary = Main-menu (2), footer = 297, social = 298. Site Title/Tagline/Icon **not** changed. |
+| Categories | Created RCC Hume Pipes, Manhole & Drain Covers, Paver Blocks & Kerb Stones, Road Safety & Street Products, Precast Basics & Guides (same slugs/descriptions as staging). The 36 blog posts got their topic category **in addition to** Blogs; Yoast Primary untouched; **no post URL changed** (checked against the snapshot). The 7 Areas We Serve posts were **not** changed. |
+| Author | Shubhankar: job title + expertise set. "400+ Site Deliveries Overseen" stat **not** added (unconfirmed). |
+
+### Fixed during production QA (19 Nov 2026)
+All of these only affect pages served with Blog Hub; the Neve pages were re-checked after each one.
+| Version | Problem found on production | Fix |
+|---|---|---|
+| theme 1.0.15 | Two Call buttons (bottom-left) and two WhatsApp buttons (bottom-right) on blog pages: the live site's **Call Now Button** and **Social Chat** plugins add their own. They must stay active for the Neve pages. | Blog Hub hides `.cnb-single.call-now-button` and `.qlwapp` on its pages. |
+| theme 1.0.16 | Old **YARPP** "Related Posts:" strip inside every blog post (staging had YARPP deactivated; production can't, the Neve area posts use it). | `blog_hub_disable_yarpp_auto_display()` unhooks YARPP's `the_content` filter on Blog Hub pages (+ CSS fallback). |
+| plugin 1.0.1 | Setting Blog Hub's logo also gave Neve a logo (`site_logo` option sync → `wp-custom-logo` body class, extra Neve logo variant). | On non-blog URLs the plugin returns the active theme's own stored `custom_logo`. Neve pages back to byte-identical. |
+| theme 1.0.17 | Bare URLs typed in posts (social links) caused sideways scrolling on phones. | `.bh-article-content a { overflow-wrap: anywhere }`. |
+| theme 1.0.18 | Bullets mixing text, **bold** and links split into flex columns and overflowed. | List items are normal text flow; gold dot absolutely positioned. |
+| theme 1.0.19–1.0.21 | Old Elementor blocks with fixed px widths (e.g. the 769px "For More Info Please contact us on" block) and blocks pasted with inline computed styles overflowed on phones. | ≤767px: Elementor columns/widgets and inline-styled boxes inside articles capped at 100%; long words break. |
+| theme 1.0.22 | Tables pasted from Word (fixed inline widths, `&nbsp;` padding) overflowed on phones. | ≤767px: `table[style]` → width 100%, fixed layout, cells wrap. |
+
+**Final QA (19 Nov 2026):** all 36 blog posts pass on phone (390px) and desktop (1440px): Blog Hub, HTTP 200, no
+sideways scroll, breadcrumb Home / Blog / Category, no YARPP strip, no duplicate plugin buttons, mobile TOC where the
+post has H2s. Neve pages (home, About, Contact, Products, RCC Pipes, Areas We Serve + sub-pages + location post)
+compared with the morning snapshot: identical HTML apart from WP Rocket's cache file name and WPForms' random
+anti-spam field; screenshots pixel-identical apart from loading timing. QA write-up with screenshots: Google Doc
+"SSC - Staging vs Design", tab "Prod Deploymemt".
+
+### Open items
+- Shubhankar stat "400+ Site Deliveries Overseen" not added on production (unconfirmed).
+- UpdraftPlus has no remote storage: backups live on the same server. Connect Google Drive / similar.
+- NP2/NP3/NP4 product sub-pages exist on staging only.
+- Staging still runs Blog Hub v1.0.14 site-wide; upload v1.0.22 there too to keep it in step (harmless there: those plugins are deactivated on staging).
+
+## 19. Version 2: Areas We Serve on Blog Hub (19 Nov 2026), theme v1.0.23 + plugin 1.1.0
+Stakeholder request: the whole Areas We Serve section uses the new design (replaces the section-18 decision that
+kept the 7 location posts on Neve). Code only, nothing to set in wp-admin. Live on production.
+
+| What | Change |
+|---|---|
+| Plugin 1.1.0 | Also serves Blog Hub for the `areas-we-serve` page and every page under it (9 state pages), all posts (incl. the 7 location posts) and all category pages (incl. the area tree). The area-exclusion helper was removed. Home, other pages, search still Neve. |
+| Theme: Areas dropdown | `blog_hub_header_areas()` now returns the published child pages of `areas-we-serve` (label + URL; all-lowercase titles like "haryana" are capitalised). Used by the desktop dropdown, mobile menu and footer. **Bug fixed:** it was a fixed list (Faridabad, Delhi, Gurgaon, Noida, Ghaziabad) linking to `/areas-we-serve/<city>/`; only Delhi exists, the others were redirected by WordPress to similarly named images (e.g. noida.jpg). The old Neve site never linked to them. |
+| Theme: menu highlight | `blog_hub_is_areas_context()`: "Areas We Serve" is the current nav item on the areas page, its sub-pages, location posts and area categories. |
+| Theme: page template | New `page-templates/template-pagebuilder-full-width.php` (same path as Neve's template used by 8 state pages): Elementor content full width, no extra title. Before, they fell back to page.php (title twice, content boxed). |
+
+**QA:** all 18 Areas URLs (page, 9 states, 7 posts, area category) on phone + desktop: Blog Hub, 200, one H1, no
+sideways scroll, no YARPP / plugin buttons. 36 blog posts re-checked. Home, About, Products + product pages identical
+to the morning snapshot. Doc: "Prod Deploymemt" tab, section "VERSION 2".
 

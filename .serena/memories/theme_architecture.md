@@ -239,3 +239,8 @@ needed per environment — not theme code, see that file directly).
 - content-single.php: `<details class="bh-toc bh-toc--mobile" data-bh-toc-mobile>` after the TL;DR, shown only ≤900px (rail TOC hidden there). article.js closes it on link click and scrolls itself (close first, else the collapse makes the jump overshoot).
 - h2 scroll-margin-top 88px (120px logged in) so TOC jumps clear the fixed header.
 
+## v1.0.15 – v1.0.22 (19 Nov 2026): production go-live fixes (see SITE_CONFIG §18)
+- components.css: hide `.cnb-single.call-now-button`, `.qlwapp` (live-site plugins) on Blog Hub pages.
+- functions.php: `blog_hub_disable_yarpp_auto_display()` on `wp` removes YARPP's the_content (1200) / feed filters.
+- article.css: links `overflow-wrap:anywhere`; ul li = block + absolute gold dot (was flex: split mixed inline content into columns); lists `grid-template-columns:minmax(0,1fr)`; `.bh-article-content{overflow-wrap:break-word}`; ≤767px: Elementor columns/widgets/e-con 100%, `:is(div,section,p,figure,span)[style]` max-width 100%, `table[style]` width 100% + fixed layout + cells wrap.
+

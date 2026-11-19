@@ -79,3 +79,21 @@
 	--space-9: 56px;
 	--space-10: 80px;
 }
+
+/* Neve's colour palette, as Elementor global colours. Pages built in Elementor
+   while the site ran Neve (e.g. the Areas We Serve hero overlays: a gradient
+   from nvdarkbg to nvc1) refer to these names; Neve defines them, Blog Hub
+   didn't, so on Blog Hub pages those colours came out blank. Values copied
+   from the live site's Neve settings (19 Nov 2026). Nothing in Blog Hub's own
+   design uses these names. */
+:root {
+	--e-global-color-nvprimaryaccent: #c9b379;
+	--e-global-color-nvsecondaryaccent: #5047ae;
+	--e-global-color-nvsitebg: #ffffff;
+	--e-global-color-nvlightbg: #f1f0e9;
+	--e-global-color-nvdarkbg: #1f1c44;
+	--e-global-color-nvtextcolor: #211f1d;
+	--e-global-color-nvtextdarkbg: #ffffff;
+	--e-global-color-nvc1: rgba(31, 28, 69, 0.6);
+	--e-global-color-nvc2: #f37262;
+}
