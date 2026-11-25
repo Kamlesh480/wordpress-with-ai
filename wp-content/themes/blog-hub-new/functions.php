@@ -16,10 +16,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'BLOG_HUB_VERSION', '1.0.28' );
+define( 'BLOG_HUB_VERSION', '1.0.29' );
 
 require_once get_template_directory() . '/inc/main-site.php';
 require_once get_template_directory() . '/inc/site-header-footer.php';
+require_once get_template_directory() . '/inc/landing-pages.php';
 
 /**
  * Theme setup.

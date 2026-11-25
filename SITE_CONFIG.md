@@ -1152,3 +1152,23 @@ Terms pages.
 
 **QA:** 36 blog posts (phone) and 18 Areas URLs (phone + desktop) pass; old-theme pages unchanged.
 
+
+## 21. Product landing pages under /lp/ (25 Nov 2026), theme v1.0.29 + 2 plugins
+
+Noindexed product landing pages built from the "Product Page - RCC Pipes v2" design. Team guide:
+**`LANDING_PAGES_GUIDE.md`** (how to create and fill one). Existing pages are not affected: everything
+only applies to pages whose Parent is the "LP" page, and production has no such page yet (checked 25 Nov 2026).
+
+| Ships | Version | What it does |
+|---|---|---|
+| Theme Blog Hub | 1.0.29 | Landing page template + CSS/JS; hides the quote strip on landing pages only |
+| Plugin **SSC Landing Pages** (new) | 1.1.0 | "Landing Page Sections" box (simple edit screen), noindex + X-Robots-Tag, sitemap exclusion, /lp/ → home |
+| Plugin SSC Blog Theme Switch | 1.2.0 | Also serves Blog Hub on /lp/ and its child pages |
+
+Production steps (staging first):
+- ⬜ Upload theme 1.0.29, then the two plugins (Plugins → Add New → Upload; "Replace current" for Theme Switch). Activate SSC Landing Pages.
+- ⬜ Pages → Add New: title `LP`, slug `lp`, no content, Publish. (Today /lp/ 301-redirects to the homepage via a
+  "missing page" rule; once the page exists, the plugin's own /lp/ → home redirect takes over and child pages load normally.)
+- ⬜ robots.txt must not block /lp/ (Google has to see the noindex).
+- ⬜ Enquiry form: existing Contact form `[wpforms id="7207" title="false"]`; send one test enquiry from a landing page.
+- ⬜ Clear WP Rocket cache; check a test landing page shows the design and `noindex, follow` in its source.

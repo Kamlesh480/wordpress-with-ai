@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SSC Blog Theme Switch
  * Description: Serves the Blog Hub theme only on the blog (blog listing, blog posts, blog category/tag/author pages). Every other URL keeps the site's active theme (Neve + Elementor) untouched. Settings: Tools → Blog Theme Switch. Deactivate this plugin to put the whole site back on the active theme instantly.
- * Version: 1.1.0
+ * Version: 1.2.0
  * Author: Shubh Sanskar Concrete
  * License: GPL-2.0-or-later
  *
@@ -100,12 +100,15 @@ function ssc_bts_is_blog_url() {
 		return false; // Home page.
 	}
 
-	// Areas We Serve page and all its sub-pages (/areas-we-serve/delhi/ ...).
-	$areas_page = get_page_by_path( 'areas-we-serve' );
-	if ( $areas_page && 'publish' === $areas_page->post_status ) {
-		$areas_path = trim( get_page_uri( $areas_page ), '/' );
-		if ( $path === $areas_path || 0 === strpos( $path, $areas_path . '/' ) ) {
-			return true;
+	// Areas We Serve page and all its sub-pages (/areas-we-serve/delhi/ ...),
+	// and the landing pages section (/lp/ and every page under it, 1.2.0).
+	foreach ( array( 'areas-we-serve', 'lp' ) as $section_slug ) {
+		$section_page = get_page_by_path( $section_slug );
+		if ( $section_page && 'publish' === $section_page->post_status ) {
+			$section_path = trim( get_page_uri( $section_page ), '/' );
+			if ( $path === $section_path || 0 === strpos( $path, $section_path . '/' ) ) {
+				return true;
+			}
 		}
 	}
 

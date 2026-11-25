@@ -13,3 +13,6 @@ wp-content/wp-staging/
 /*.svg
 /Untitled-*.py
 backups/
+
+# Local test copy of WPForms Lite (installed only to preview forms in Docker)
+wp-content/plugins/wpforms-lite/

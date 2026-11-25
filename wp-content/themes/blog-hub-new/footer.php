@@ -28,8 +28,9 @@ $bh_directions_href = $bh_address ? 'https://www.google.com/maps/search/?api=1&q
 <?php
 // Sitewide quote strip, directly above the footer — but not on articles: the
 // article design (Figma "SSC Page Designs", node 2020:3) ends FAQ → author box
-// → CTA band → Related Articles → footer, with no quote strip.
-if ( ! is_singular( 'post' ) ) :
+// → CTA band → Related Articles → footer, with no quote strip. Landing pages
+// (/lp/) end with their own "Request a quote" section, so no strip there either.
+if ( ! is_singular( 'post' ) && ! ( function_exists( 'blog_hub_is_landing_page' ) && blog_hub_is_landing_page() ) ) :
 	?>
 <section class="bh-quote-strip" aria-label="<?php esc_attr_e( 'Request a quote', 'blog-hub' ); ?>">
 	<div class="bh-container bh-quote-strip__inner">
