@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SSC Blog Theme Switch
  * Description: Serves the Blog Hub theme only on the blog (blog listing, blog posts, blog category/tag/author pages). Every other URL keeps the site's active theme (Neve + Elementor) untouched. Settings: Tools → Blog Theme Switch. Deactivate this plugin to put the whole site back on the active theme instantly.
- * Version: 1.2.0
+ * Version: 1.2.1
  * Author: Shubh Sanskar Concrete
  * License: GPL-2.0-or-later
  *
@@ -97,7 +97,11 @@ function ssc_bts_is_blog_url() {
 	}
 	$path = trim( $path, '/' );
 	if ( '' === $path ) {
-		return false; // Home page.
+		// Previews of unpublished drafts open at /?page_id=N&preview=true (or
+		// ?p=N for posts), so the address has no /lp/ or /blog/ path to match.
+		// Look the post up instead (1.2.1). Published posts' previews keep
+		// their normal address and are matched further down.
+		return ssc_bts_is_blog_preview();
 	}
 
 	// Areas We Serve page and all its sub-pages (/areas-we-serve/delhi/ ...),
@@ -143,6 +147,44 @@ function ssc_bts_is_blog_url() {
 	// Any single post (blog posts and Areas We Serve location posts).
 	$post_id = url_to_postid( home_url( '/' . $path . '/' ) );
 	return $post_id && 'post' === get_post_type( $post_id );
+}
+
+/**
+ * Is this a preview of a draft that Blog Hub serves once published: a blog
+ * post, or a page under Areas We Serve or LP? Only for logged-in editors
+ * (WordPress only shows previews to them anyway).
+ */
+function ssc_bts_is_blog_preview() {
+	// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only routing decision; WordPress checks preview access itself.
+	if ( empty( $_GET['preview'] ) || ! function_exists( 'is_user_logged_in' ) || ! is_user_logged_in() ) {
+		return false;
+	}
+	$id = 0;
+	foreach ( array( 'preview_id', 'page_id', 'p' ) as $key ) {
+		if ( ! empty( $_GET[ $key ] ) ) {
+			$id = absint( $_GET[ $key ] );
+			break;
+		}
+	}
+	// phpcs:enable
+	$post = $id ? get_post( $id ) : null;
+	if ( ! $post || ! current_user_can( 'edit_post', $post->ID ) ) {
+		return false;
+	}
+	if ( 'post' === $post->post_type ) {
+		return true;
+	}
+	if ( 'page' !== $post->post_type ) {
+		return false;
+	}
+	$ancestors = array_map( 'intval', get_post_ancestors( $post ) );
+	foreach ( array( 'areas-we-serve', 'lp' ) as $section_slug ) {
+		$section_page = get_page_by_path( $section_slug );
+		if ( $section_page && ( (int) $section_page->ID === (int) $post->ID || in_array( (int) $section_page->ID, $ancestors, true ) ) ) {
+			return true;
+		}
+	}
+	return false;
 }
 
 /** Decide once per request whether to serve Blog Hub. */
